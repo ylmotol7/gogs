@@ -308,6 +308,18 @@ const (
 	ORG_MODE     Type = "orgmode"
 )
 
+// Detect returns best guess of a markup type based on file name.
+func Detect(filename string) Type {
+	switch {
+	case IsMarkdownFile(filename):
+		return MARKDOWN
+	case IsOrgModeFile(filename):
+		return ORG_MODE
+	default:
+		return UNRECOGNIZED
+	}
+}
+
 // Render takes a string or []byte and renders to HTML in given type of syntax with special links.
 func Render(typ Type, input interface{}, urlPrefix string, metas map[string]string) []byte {
 	var rawBytes []byte
@@ -326,6 +338,7 @@ func Render(typ Type, input interface{}, urlPrefix string, metas map[string]stri
 	case MARKDOWN:
 		rawHTML = RawMarkdown(rawBytes, urlPrefix)
 	case ORG_MODE:
+		rawHTML = RawOrgMode(rawBytes, urlPrefix)
 	default:
 		return rawBytes // Do nothing if syntax type is not recognized
 	}

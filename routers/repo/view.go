@@ -85,10 +85,14 @@ func renderDirectory(ctx *context.Context, treeLink string) {
 		if isTextFile {
 			d, _ := ioutil.ReadAll(dataRc)
 			buf = append(buf, d...)
-			switch {
-			case markup.IsMarkdownFile(readmeFile.Name()):
+
+			switch markup.Detect(readmeFile.Name()) {
+			case markup.MARKDOWN:
 				ctx.Data["IsMarkdown"] = true
 				buf = markup.Markdown(buf, treeLink, ctx.Repo.Repository.ComposeMetas())
+			case markup.ORG_MODE:
+				ctx.Data["IsMarkdown"] = true
+				buf = markup.OrgMode(buf, treeLink, ctx.Repo.Repository.ComposeMetas())
 			default:
 				buf = bytes.Replace(buf, []byte("\n"), []byte(`<br>`), -1)
 			}
@@ -150,18 +154,20 @@ func renderFile(ctx *context.Context, entry *git.TreeEntry, treeLink, rawLink st
 			break
 		}
 
+		ctx.Data["IsIPythonNotebook"] = strings.HasSuffix(blob.Name(), ".ipynb")
+		ctx.Data["ReadmeExist"] = markup.IsReadmeFile(blob.Name())
+
 		d, _ := ioutil.ReadAll(dataRc)
 		buf = append(buf, d...)
 
-		isMarkdown := markup.IsMarkdownFile(blob.Name())
-		ctx.Data["IsMarkdown"] = isMarkdown
-		ctx.Data["ReadmeExist"] = isMarkdown && markup.IsReadmeFile(blob.Name())
-
-		ctx.Data["IsIPythonNotebook"] = strings.HasSuffix(blob.Name(), ".ipynb")
-
-		if isMarkdown {
+		switch markup.Detect(blob.Name()) {
+		case markup.MARKDOWN:
+			ctx.Data["IsMarkdown"] = true
 			ctx.Data["FileContent"] = string(markup.Markdown(buf, path.Dir(treeLink), ctx.Repo.Repository.ComposeMetas()))
-		} else {
+		case markup.ORG_MODE:
+			ctx.Data["IsMarkdown"] = true
+			ctx.Data["FileContent"] = string(markup.OrgMode(buf, path.Dir(treeLink), ctx.Repo.Repository.ComposeMetas()))
+		default:
 			// Building code view blocks with line number on server side.
 			var fileContent string
 			if err, content := template.ToUTF8WithErr(buf); err != nil {
