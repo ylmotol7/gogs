@@ -24,13 +24,13 @@
 										<i class="octicon octicon-repo"></i>
 									{{end}}
 								</span>
-								<a href="{{AppSubUrl}}/{{.Owner.Name}}/{{.Name}}">
+								<a href="{{AppSubURL}}/{{.Owner.Name}}/{{.Name}}">
 									{{.Owner.Name}}/{{.Name}}
 								</a> 
 								<span class="ui text light grey">{{.Size | FileSize}}</span>
-								{{if not (eq .OwnerID $.SignedUserID)}}
-								<div class="right floated content">
-									<a class="ui red tiny button inline text-thin delete-button" href="" data-url="{{$.Link}}/leave" data-id="{{.ID}}">{{$.i18n.Tr "settings.repos.leave"}}</a>
+								{{if not (eq .OwnerID $.LoggedUserID)}}
+								<div class="right floated">
+									<a class="ui red tiny basic button inline delete-button" href="" data-url="{{$.Link}}/leave" data-id="{{.ID}}">{{$.i18n.Tr "settings.repos.leave"}}</a>
 								</div>
 								{{end}}
 							</div>

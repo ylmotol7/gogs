@@ -5,13 +5,16 @@
 package context
 
 import (
+	"net/http"
 	"net/url"
+	"strings"
 
 	"github.com/go-macaron/csrf"
 	"gopkg.in/macaron.v1"
 
-	"github.com/gogits/gogs/pkg/auth"
-	"github.com/gogits/gogs/pkg/setting"
+	"github.com/gogs/gogs/pkg/auth"
+	"github.com/gogs/gogs/pkg/setting"
+	"github.com/gogs/gogs/pkg/tool"
 )
 
 type ToggleOptions struct {
@@ -22,73 +25,88 @@ type ToggleOptions struct {
 }
 
 func Toggle(options *ToggleOptions) macaron.Handler {
-	return func(ctx *Context) {
+	return func(c *Context) {
 		// Cannot view any page before installation.
 		if !setting.InstallLock {
-			ctx.Redirect(setting.AppSubUrl + "/install")
+			c.Redirect(setting.AppSubURL + "/install")
 			return
 		}
 
 		// Check prohibit login users.
-		if ctx.IsSigned && ctx.User.ProhibitLogin {
-			ctx.Data["Title"] = ctx.Tr("auth.prohibit_login")
-			ctx.HTML(200, "user/auth/prohibit_login")
+		if c.IsLogged && c.User.ProhibitLogin {
+			c.Data["Title"] = c.Tr("auth.prohibit_login")
+			c.HTML(200, "user/auth/prohibit_login")
 			return
 		}
 
 		// Check non-logged users landing page.
-		if !ctx.IsSigned && ctx.Req.RequestURI == "/" && setting.LandingPageURL != setting.LANDING_PAGE_HOME {
-			ctx.Redirect(setting.AppSubUrl + string(setting.LandingPageURL))
+		if !c.IsLogged && c.Req.RequestURI == "/" && setting.LandingPageURL != setting.LANDING_PAGE_HOME {
+			c.Redirect(setting.AppSubURL + string(setting.LandingPageURL))
 			return
 		}
 
 		// Redirect to dashboard if user tries to visit any non-login page.
-		if options.SignOutRequired && ctx.IsSigned && ctx.Req.RequestURI != "/" {
-			ctx.Redirect(setting.AppSubUrl + "/")
+		if options.SignOutRequired && c.IsLogged && c.Req.RequestURI != "/" {
+			c.Redirect(setting.AppSubURL + "/")
 			return
 		}
 
-		if !options.SignOutRequired && !options.DisableCSRF && ctx.Req.Method == "POST" && !auth.IsAPIPath(ctx.Req.URL.Path) {
-			csrf.Validate(ctx.Context, ctx.csrf)
-			if ctx.Written() {
+		if !options.SignOutRequired && !options.DisableCSRF && c.Req.Method == "POST" && !auth.IsAPIPath(c.Req.URL.Path) {
+			csrf.Validate(c.Context, c.csrf)
+			if c.Written() {
 				return
 			}
 		}
 
 		if options.SignInRequired {
-			if !ctx.IsSigned {
+			if !c.IsLogged {
 				// Restrict API calls with error message.
-				if auth.IsAPIPath(ctx.Req.URL.Path) {
-					ctx.JSON(403, map[string]string{
+				if auth.IsAPIPath(c.Req.URL.Path) {
+					c.JSON(403, map[string]string{
 						"message": "Only signed in user is allowed to call APIs.",
 					})
 					return
 				}
 
-				ctx.SetCookie("redirect_to", url.QueryEscape(setting.AppSubUrl+ctx.Req.RequestURI), 0, setting.AppSubUrl)
-				ctx.Redirect(setting.AppSubUrl + "/user/login")
+				c.SetCookie("redirect_to", url.QueryEscape(setting.AppSubURL+c.Req.RequestURI), 0, setting.AppSubURL)
+				c.Redirect(setting.AppSubURL + "/user/login")
 				return
-			} else if !ctx.User.IsActive && setting.Service.RegisterEmailConfirm {
-				ctx.Data["Title"] = ctx.Tr("auth.active_your_account")
-				ctx.HTML(200, "user/auth/activate")
+			} else if !c.User.IsActive && setting.Service.RegisterEmailConfirm {
+				c.Data["Title"] = c.Tr("auth.active_your_account")
+				c.HTML(200, "user/auth/activate")
 				return
 			}
 		}
 
 		// Redirect to log in page if auto-signin info is provided and has not signed in.
-		if !options.SignOutRequired && !ctx.IsSigned && !auth.IsAPIPath(ctx.Req.URL.Path) &&
-			len(ctx.GetCookie(setting.CookieUserName)) > 0 {
-			ctx.SetCookie("redirect_to", url.QueryEscape(setting.AppSubUrl+ctx.Req.RequestURI), 0, setting.AppSubUrl)
-			ctx.Redirect(setting.AppSubUrl + "/user/login")
+		if !options.SignOutRequired && !c.IsLogged && !auth.IsAPIPath(c.Req.URL.Path) &&
+			len(c.GetCookie(setting.CookieUserName)) > 0 {
+			c.SetCookie("redirect_to", url.QueryEscape(setting.AppSubURL+c.Req.RequestURI), 0, setting.AppSubURL)
+			c.Redirect(setting.AppSubURL + "/user/login")
 			return
 		}
 
 		if options.AdminRequired {
-			if !ctx.User.IsAdmin {
-				ctx.Error(403)
+			if !c.User.IsAdmin {
+				c.Error(403)
 				return
 			}
-			ctx.Data["PageIsAdmin"] = true
+			c.Data["PageIsAdmin"] = true
 		}
+	}
+}
+
+// RequireBasicAuth verifies HTTP Basic Authentication header with given credentials
+func (c *Context) RequireBasicAuth(username, password string) {
+	fields := strings.Fields(c.Req.Header.Get("Authorization"))
+	if len(fields) != 2 || fields[0] != "Basic" {
+		c.Status(http.StatusUnauthorized)
+		return
+	}
+
+	uname, passwd, _ := tool.BasicAuthDecode(fields[1])
+	if uname != username || passwd != password {
+		c.Status(http.StatusForbidden)
+		return
 	}
 }

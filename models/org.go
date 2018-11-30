@@ -124,7 +124,7 @@ func CreateOrganization(org, owner *User) (err error) {
 	org.NumMembers = 1
 
 	sess := x.NewSession()
-	defer sessionRelease(sess)
+	defer sess.Close()
 	if err = sess.Begin(); err != nil {
 		return err
 	}
@@ -208,7 +208,7 @@ func DeleteOrganization(org *User) (err error) {
 	}
 
 	sess := x.NewSession()
-	defer sessionRelease(sess)
+	defer sess.Close()
 	if err = sess.Begin(); err != nil {
 		return err
 	}
@@ -237,7 +237,7 @@ func DeleteOrganization(org *User) (err error) {
 
 // OrgUser represents an organization-user relation.
 type OrgUser struct {
-	ID       int64 `xorm:"pk autoincr"`
+	ID       int64
 	Uid      int64 `xorm:"INDEX UNIQUE(s)"`
 	OrgID    int64 `xorm:"INDEX UNIQUE(s)"`
 	IsPublic bool
@@ -405,12 +405,12 @@ func RemoveOrgUser(orgID, userID int64) error {
 	}
 
 	sess := x.NewSession()
-	defer sessionRelease(sess)
+	defer sess.Close()
 	if err := sess.Begin(); err != nil {
 		return err
 	}
 
-	if _, err := sess.Id(ou.ID).Delete(ou); err != nil {
+	if _, err := sess.ID(ou.ID).Delete(ou); err != nil {
 		return err
 	} else if _, err = sess.Exec("UPDATE `user` SET num_members=num_members-1 WHERE id=?", orgID); err != nil {
 		return err

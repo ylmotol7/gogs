@@ -16,14 +16,14 @@ const OWNER_TEAM = "Owners"
 
 // Team represents a organization team.
 type Team struct {
-	ID          int64 `xorm:"pk autoincr"`
+	ID          int64
 	OrgID       int64 `xorm:"INDEX"`
 	LowerName   string
 	Name        string
 	Description string
 	Authorize   AccessMode
-	Repos       []*Repository `xorm:"-"`
-	Members     []*User       `xorm:"-"`
+	Repos       []*Repository `xorm:"-" json:"-"`
+	Members     []*User       `xorm:"-" json:"-"`
 	NumRepos    int
 	NumMembers  int
 }
@@ -31,7 +31,7 @@ type Team struct {
 func (t *Team) AfterSet(colName string, _ xorm.Cell) {
 	switch colName {
 	case "num_repos":
-		// LEGACY [1.0]: this is backward compatibility bug fix for https://github.com/gogits/gogs/issues/3671
+		// LEGACY [1.0]: this is backward compatibility bug fix for https://github.com/gogs/gogs/issues/3671
 		if t.NumRepos < 0 {
 			t.NumRepos = 0
 		}
@@ -111,7 +111,7 @@ func (t *Team) addRepository(e Engine, repo *Repository) (err error) {
 	}
 
 	t.NumRepos++
-	if _, err = e.Id(t.ID).AllCols().Update(t); err != nil {
+	if _, err = e.ID(t.ID).AllCols().Update(t); err != nil {
 		return fmt.Errorf("update team: %v", err)
 	}
 
@@ -139,7 +139,7 @@ func (t *Team) AddRepository(repo *Repository) (err error) {
 	}
 
 	sess := x.NewSession()
-	defer sessionRelease(sess)
+	defer sess.Close()
 	if err = sess.Begin(); err != nil {
 		return err
 	}
@@ -157,7 +157,7 @@ func (t *Team) removeRepository(e Engine, repo *Repository, recalculate bool) (e
 	}
 
 	t.NumRepos--
-	if _, err = e.Id(t.ID).AllCols().Update(t); err != nil {
+	if _, err = e.ID(t.ID).AllCols().Update(t); err != nil {
 		return err
 	}
 
@@ -199,7 +199,7 @@ func (t *Team) RemoveRepository(repoID int64) error {
 	}
 
 	sess := x.NewSession()
-	defer sessionRelease(sess)
+	defer sess.Close()
 	if err = sess.Begin(); err != nil {
 		return err
 	}
@@ -286,7 +286,7 @@ func GetTeamOfOrgByName(orgID int64, name string) (*Team, error) {
 
 func getTeamByID(e Engine, teamID int64) (*Team, error) {
 	t := new(Team)
-	has, err := e.Id(teamID).Get(t)
+	has, err := e.ID(teamID).Get(t)
 	if err != nil {
 		return nil, err
 	} else if !has {
@@ -321,7 +321,7 @@ func UpdateTeam(t *Team, authChanged bool) (err error) {
 	}
 
 	sess := x.NewSession()
-	defer sessionRelease(sess)
+	defer sess.Close()
 	if err = sess.Begin(); err != nil {
 		return err
 	}
@@ -334,7 +334,7 @@ func UpdateTeam(t *Team, authChanged bool) (err error) {
 		return ErrTeamAlreadyExist{t.OrgID, t.LowerName}
 	}
 
-	if _, err = sess.Id(t.ID).AllCols().Update(t); err != nil {
+	if _, err = sess.ID(t.ID).AllCols().Update(t); err != nil {
 		return fmt.Errorf("update: %v", err)
 	}
 
@@ -368,7 +368,7 @@ func DeleteTeam(t *Team) error {
 	}
 
 	sess := x.NewSession()
-	defer sessionRelease(sess)
+	defer sess.Close()
 	if err = sess.Begin(); err != nil {
 		return err
 	}
@@ -386,7 +386,7 @@ func DeleteTeam(t *Team) error {
 	}
 
 	// Delete team.
-	if _, err = sess.Id(t.ID).Delete(new(Team)); err != nil {
+	if _, err = sess.ID(t.ID).Delete(new(Team)); err != nil {
 		return err
 	}
 	// Update organization number of teams.
@@ -406,7 +406,7 @@ func DeleteTeam(t *Team) error {
 
 // TeamUser represents an team-user relation.
 type TeamUser struct {
-	ID     int64 `xorm:"pk autoincr"`
+	ID     int64
 	OrgID  int64 `xorm:"INDEX"`
 	TeamID int64 `xorm:"UNIQUE(s)"`
 	UID    int64 `xorm:"UNIQUE(s)"`
@@ -431,7 +431,7 @@ func getTeamMembers(e Engine, teamID int64) (_ []*User, err error) {
 	members := make([]*User, 0, len(teamUsers))
 	for i := range teamUsers {
 		member := new(User)
-		if _, err = e.Id(teamUsers[i].UID).Get(member); err != nil {
+		if _, err = e.ID(teamUsers[i].UID).Get(member); err != nil {
 			return nil, fmt.Errorf("get user '%d': %v", teamUsers[i].UID, err)
 		}
 		members = append(members, member)
@@ -450,10 +450,11 @@ func getUserTeams(e Engine, orgID, userID int64) ([]*Team, error) {
 		return nil, err
 	}
 
-	teamIDs := make([]int64, len(teamUsers))
+	teamIDs := make([]int64, len(teamUsers)+1)
 	for i := range teamUsers {
 		teamIDs[i] = teamUsers[i].TeamID
 	}
+	teamIDs[len(teamUsers)] = -1
 
 	teams := make([]*Team, 0, len(teamIDs))
 	return teams, e.Where("org_id = ?", orgID).In("id", teamIDs).Find(&teams)
@@ -487,7 +488,7 @@ func AddTeamMember(orgID, teamID, userID int64) error {
 	}
 
 	sess := x.NewSession()
-	defer sessionRelease(sess)
+	defer sess.Close()
 	if err = sess.Begin(); err != nil {
 		return err
 	}
@@ -499,7 +500,7 @@ func AddTeamMember(orgID, teamID, userID int64) error {
 	}
 	if _, err = sess.Insert(tu); err != nil {
 		return err
-	} else if _, err = sess.Id(t.ID).Update(t); err != nil {
+	} else if _, err = sess.ID(t.ID).Update(t); err != nil {
 		return err
 	}
 
@@ -519,7 +520,7 @@ func AddTeamMember(orgID, teamID, userID int64) error {
 	if t.IsOwnerTeam() {
 		ou.IsOwner = true
 	}
-	if _, err = sess.Id(ou.ID).AllCols().Update(ou); err != nil {
+	if _, err = sess.ID(ou.ID).AllCols().Update(ou); err != nil {
 		return err
 	}
 
@@ -561,7 +562,7 @@ func removeTeamMember(e Engine, orgID, teamID, uid int64) error {
 	}
 	if _, err := e.Delete(tu); err != nil {
 		return err
-	} else if _, err = e.Id(t.ID).AllCols().Update(t); err != nil {
+	} else if _, err = e.ID(t.ID).AllCols().Update(t); err != nil {
 		return err
 	}
 
@@ -582,7 +583,7 @@ func removeTeamMember(e Engine, orgID, teamID, uid int64) error {
 	if t.IsOwnerTeam() {
 		ou.IsOwner = false
 	}
-	if _, err = e.Id(ou.ID).AllCols().Update(ou); err != nil {
+	if _, err = e.ID(ou.ID).AllCols().Update(ou); err != nil {
 		return err
 	}
 	return nil
@@ -591,7 +592,7 @@ func removeTeamMember(e Engine, orgID, teamID, uid int64) error {
 // RemoveTeamMember removes member from given team of given organization.
 func RemoveTeamMember(orgID, teamID, uid int64) error {
 	sess := x.NewSession()
-	defer sessionRelease(sess)
+	defer sess.Close()
 	if err := sess.Begin(); err != nil {
 		return err
 	}

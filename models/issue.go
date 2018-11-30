@@ -13,11 +13,11 @@ import (
 	"github.com/go-xorm/xorm"
 	log "gopkg.in/clog.v1"
 
-	api "github.com/gogits/go-gogs-client"
+	api "github.com/gogs/go-gogs-client"
 
-	"github.com/gogits/gogs/models/errors"
-	"github.com/gogits/gogs/pkg/tool"
-	"github.com/gogits/gogs/pkg/setting"
+	"github.com/gogs/gogs/models/errors"
+	"github.com/gogs/gogs/pkg/setting"
+	"github.com/gogs/gogs/pkg/tool"
 )
 
 var (
@@ -26,36 +26,36 @@ var (
 
 // Issue represents an issue or pull request of repository.
 type Issue struct {
-	ID              int64       `xorm:"pk autoincr"`
+	ID              int64
 	RepoID          int64       `xorm:"INDEX UNIQUE(repo_index)"`
-	Repo            *Repository `xorm:"-"`
+	Repo            *Repository `xorm:"-" json:"-"`
 	Index           int64       `xorm:"UNIQUE(repo_index)"` // Index in one repository.
 	PosterID        int64
-	Poster          *User    `xorm:"-"`
+	Poster          *User    `xorm:"-" json:"-"`
 	Title           string   `xorm:"name"`
 	Content         string   `xorm:"TEXT"`
-	RenderedContent string   `xorm:"-"`
-	Labels          []*Label `xorm:"-"`
+	RenderedContent string   `xorm:"-" json:"-"`
+	Labels          []*Label `xorm:"-" json:"-"`
 	MilestoneID     int64
-	Milestone       *Milestone `xorm:"-"`
+	Milestone       *Milestone `xorm:"-" json:"-"`
 	Priority        int
 	AssigneeID      int64
-	Assignee        *User `xorm:"-"`
+	Assignee        *User `xorm:"-" json:"-"`
 	IsClosed        bool
-	IsRead          bool         `xorm:"-"`
+	IsRead          bool         `xorm:"-" json:"-"`
 	IsPull          bool         // Indicates whether is a pull request or not.
-	PullRequest     *PullRequest `xorm:"-"`
+	PullRequest     *PullRequest `xorm:"-" json:"-"`
 	NumComments     int
 
-	Deadline     time.Time `xorm:"-"`
+	Deadline     time.Time `xorm:"-" json:"-"`
 	DeadlineUnix int64
-	Created      time.Time `xorm:"-"`
+	Created      time.Time `xorm:"-" json:"-"`
 	CreatedUnix  int64
-	Updated      time.Time `xorm:"-"`
+	Updated      time.Time `xorm:"-" json:"-"`
 	UpdatedUnix  int64
 
-	Attachments []*Attachment `xorm:"-"`
-	Comments    []*Comment    `xorm:"-"`
+	Attachments []*Attachment `xorm:"-" json:"-"`
+	Comments    []*Comment    `xorm:"-" json:"-"`
 }
 
 func (issue *Issue) BeforeInsert() {
@@ -325,7 +325,7 @@ func (issue *Issue) clearLabels(e *xorm.Session) (err error) {
 
 func (issue *Issue) ClearLabels(doer *User) (err error) {
 	sess := x.NewSession()
-	defer sessionRelease(sess)
+	defer sess.Close()
 	if err = sess.Begin(); err != nil {
 		return err
 	}
@@ -370,7 +370,7 @@ func (issue *Issue) ClearLabels(doer *User) (err error) {
 // ReplaceLabels removes all current labels and add new labels to the issue.
 func (issue *Issue) ReplaceLabels(labels []*Label) (err error) {
 	sess := x.NewSession()
-	defer sessionRelease(sess)
+	defer sess.Close()
 	if err = sess.Begin(); err != nil {
 		return err
 	}
@@ -402,7 +402,7 @@ func (i *Issue) ReadBy(uid int64) error {
 }
 
 func updateIssueCols(e Engine, issue *Issue, cols ...string) error {
-	_, err := e.Id(issue.ID).Cols(cols...).Update(issue)
+	_, err := e.ID(issue.ID).Cols(cols...).Update(issue)
 	return err
 }
 
@@ -455,7 +455,7 @@ func (i *Issue) changeStatus(e *xorm.Session, doer *User, repo *Repository, isCl
 // ChangeStatus changes issue status to open or closed.
 func (issue *Issue) ChangeStatus(doer *User, repo *Repository, isClosed bool) (err error) {
 	sess := x.NewSession()
-	defer sessionRelease(sess)
+	defer sess.Close()
 	if err = sess.Begin(); err != nil {
 		return err
 	}
@@ -744,7 +744,7 @@ func newIssue(e *xorm.Session, opts NewIssueOptions) (err error) {
 // NewIssue creates new issue with labels and attachments for repository.
 func NewIssue(repo *Repository, issue *Issue, labelIDs []int64, uuids []string) (err error) {
 	sess := x.NewSession()
-	defer sessionRelease(sess)
+	defer sess.Close()
 	if err = sess.Begin(); err != nil {
 		return err
 	}
@@ -843,7 +843,7 @@ func GetIssueByIndex(repoID, index int64) (*Issue, error) {
 
 func getRawIssueByID(e Engine, id int64) (*Issue, error) {
 	issue := new(Issue)
-	has, err := e.Id(id).Get(issue)
+	has, err := e.ID(id).Get(issue)
 	if err != nil {
 		return nil, err
 	} else if !has {
@@ -1007,7 +1007,7 @@ func GetParticipantsByIssueID(issueID int64) ([]*User, error) {
 
 // IssueUser represents an issue-user relation.
 type IssueUser struct {
-	ID          int64 `xorm:"pk autoincr"`
+	ID          int64
 	UID         int64 `xorm:"INDEX"` // User ID.
 	IssueID     int64
 	RepoID      int64 `xorm:"INDEX"`
@@ -1062,7 +1062,7 @@ func newIssueUsers(e *xorm.Session, repo *Repository, issue *Issue) error {
 // NewIssueUsers adds new issue-user relations for new issue of repository.
 func NewIssueUsers(repo *Repository, issue *Issue) (err error) {
 	sess := x.NewSession()
-	defer sessionRelease(sess)
+	defer sess.Close()
 	if err = sess.Begin(); err != nil {
 		return err
 	}
@@ -1354,7 +1354,7 @@ func GetRepoIssueStats(repoID, userID int64, filterMode FilterMode, isPull bool)
 }
 
 func updateIssue(e Engine, issue *Issue) error {
-	_, err := e.Id(issue.ID).AllCols().Update(issue)
+	_, err := e.ID(issue.ID).AllCols().Update(issue)
 	return err
 }
 
@@ -1391,7 +1391,7 @@ func updateIssueUserByAssignee(e *xorm.Session, issue *Issue) (err error) {
 // UpdateIssueUserByAssignee updates issue-user relation for assignee.
 func UpdateIssueUserByAssignee(issue *Issue) (err error) {
 	sess := x.NewSession()
-	defer sessionRelease(sess)
+	defer sess.Close()
 	if err = sess.Begin(); err != nil {
 		return err
 	}
@@ -1423,7 +1423,7 @@ func updateIssueUsersByMentions(e Engine, issueID int64, uids []int64) error {
 
 		iu.IsMentioned = true
 		if has {
-			_, err = e.Id(iu.ID).AllCols().Update(iu)
+			_, err = e.ID(iu.ID).AllCols().Update(iu)
 		} else {
 			_, err = e.Insert(iu)
 		}

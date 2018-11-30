@@ -254,6 +254,9 @@
 
 		#file-content {
 			.header {
+				.octicon {
+					padding-right: 5px;
+				}
 				.icon {
 					font-size: 1em;
 					margin-top: -2px;
@@ -324,6 +327,10 @@
 					&.nb-heading-cell {
 						margin-top: 0.5em;
 					}
+					
+					img {
+						max-width: 100%;
+					}
 				}
 
 				.nb-raw-cell {
@@ -370,7 +377,7 @@
 						font-size: 14px;
 					}
 					img {
-						max-width: 100%;    
+						max-width: 100%;
 					}
 				  table {
 						border: 1px solid #000;
@@ -415,13 +422,18 @@
 
 				table {
 					width: 100%;
+					tbody {
+						tr {
+							padding: 0 !important;
+						}
+					}
 				}
 				.lines-num {
 					vertical-align: top;
 					text-align: right;
 					color: #999;
 					background: #f5f5f5;
-					width: 1%;
+					width: 42px;
 
 					span {
 						line-height: 20px;
@@ -432,7 +444,8 @@
 				}
 				.lines-num,
 				.lines-code {
-					padding: 0;
+					display: table-cell !important;
+					padding: 0 !important;
 					pre,
 					ol,
 					.hljs {
@@ -625,6 +638,9 @@
 				.avatar {
 					margin-left: 10px;
 					margin-top: 10px;
+				}
+				#commit_description {
+					height: auto;
 				}
 			}
 		}
@@ -1051,6 +1067,11 @@
 			.lines-num {
 				border-right: 1px solid #d4d4d5;
 				padding: 0 5px;
+				user-select: none;
+
+				&::before {
+					content: attr(data-line-number);
+				}
 
 				&.lines-num-old, &.lines-num-new {
 					cursor: pointer;
@@ -1134,6 +1155,11 @@
 		overflow: auto;
 		overflow-x: auto;
 		overflow-y: hidden;
+
+		table {
+			width: 100%;
+			border-spacing: 0;
+		}
 	}
 
 	&.quickstart {
@@ -1313,8 +1339,9 @@
 			.ui.sub.header {
 				text-transform: none;
 			}
-			>.markdown {
-				padding: 15px 30px;
+			.markdown {
+				padding-left: 25px;
+				margin-left: -25px;
 
 				h1, h2, h3, h4, h5, h6 {
 					&:first-of-type {
@@ -1326,12 +1353,6 @@
 	}
 
 	&.settings {
-		&.options {
-			.box.field {
-				padding-left: 27px;
-			}
-		}
-
 		&.collaboration {
 			.collaborator.list {
 				padding: 0;
@@ -1397,6 +1418,10 @@
 				.menu .item {
 					padding: 10px !important;
 				}
+			}
+
+			.logo.item img {
+				margin-top: -4px;
 			}
 		}
 

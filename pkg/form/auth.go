@@ -26,7 +26,13 @@ type Authentication struct {
 	AttributesInBind  bool
 	Filter            string
 	AdminFilter       string
+	GroupEnabled      bool
+	GroupDN           string
+	GroupFilter       string
+	GroupMemberUID    string
+	UserUID           string
 	IsActive          bool
+	IsDefault         bool
 	SMTPAuth          string
 	SMTPHost          string
 	SMTPPort          int

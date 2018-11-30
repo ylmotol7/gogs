@@ -13,9 +13,9 @@ import (
 
 	"github.com/go-xorm/xorm"
 
-	api "github.com/gogits/go-gogs-client"
+	api "github.com/gogs/go-gogs-client"
 
-	"github.com/gogits/gogs/pkg/tool"
+	"github.com/gogs/gogs/pkg/tool"
 )
 
 var labelColorPattern = regexp.MustCompile("#([a-fA-F0-9]{6})")
@@ -54,21 +54,21 @@ func GetLabelTemplateFile(name string) ([][2]string, error) {
 
 // Label represents a label of repository for issues.
 type Label struct {
-	ID              int64 `xorm:"pk autoincr"`
+	ID              int64
 	RepoID          int64 `xorm:"INDEX"`
 	Name            string
 	Color           string `xorm:"VARCHAR(7)"`
 	NumIssues       int
 	NumClosedIssues int
-	NumOpenIssues   int  `xorm:"-"`
-	IsChecked       bool `xorm:"-"`
+	NumOpenIssues   int  `xorm:"-" json:"-"`
+	IsChecked       bool `xorm:"-" json:"-"`
 }
 
 func (label *Label) APIFormat() *api.Label {
 	return &api.Label{
 		ID:    label.ID,
 		Name:  label.Name,
-		Color: label.Color,
+		Color: strings.TrimLeft(label.Color, "#"),
 	}
 }
 
@@ -103,7 +103,28 @@ func NewLabels(labels ...*Label) error {
 	return err
 }
 
-// getLabelOfRepoByID returns a label by ID in given repository.
+// getLabelOfRepoByName returns a label by Name in given repository.
+// If pass repoID as 0, then ORM will ignore limitation of repository
+// and can return arbitrary label with any valid ID.
+func getLabelOfRepoByName(e Engine, repoID int64, labelName string) (*Label, error) {
+	if len(labelName) <= 0 {
+		return nil, ErrLabelNotExist{0, repoID}
+	}
+
+	l := &Label{
+		Name:   labelName,
+		RepoID: repoID,
+	}
+	has, err := x.Get(l)
+	if err != nil {
+		return nil, err
+	} else if !has {
+		return nil, ErrLabelNotExist{0, l.RepoID}
+	}
+	return l, nil
+}
+
+// getLabelInRepoByID returns a label by ID in given repository.
 // If pass repoID as 0, then ORM will ignore limitation of repository
 // and can return arbitrary label with any valid ID.
 func getLabelOfRepoByID(e Engine, repoID, labelID int64) (*Label, error) {
@@ -132,6 +153,11 @@ func GetLabelByID(id int64) (*Label, error) {
 // GetLabelOfRepoByID returns a label by ID in given repository.
 func GetLabelOfRepoByID(repoID, labelID int64) (*Label, error) {
 	return getLabelOfRepoByID(x, repoID, labelID)
+}
+
+// GetLabelOfRepoByName returns a label by name in given repository.
+func GetLabelOfRepoByName(repoID int64, labelName string) (*Label, error) {
+	return getLabelOfRepoByName(x, repoID, labelName)
 }
 
 // GetLabelsInRepoByIDs returns a list of labels by IDs in given repository,
@@ -170,7 +196,7 @@ func GetLabelsByIssueID(issueID int64) ([]*Label, error) {
 }
 
 func updateLabel(e Engine, l *Label) error {
-	_, err := e.Id(l.ID).AllCols().Update(l)
+	_, err := e.ID(l.ID).AllCols().Update(l)
 	return err
 }
 
@@ -190,12 +216,12 @@ func DeleteLabel(repoID, labelID int64) error {
 	}
 
 	sess := x.NewSession()
-	defer sessionRelease(sess)
+	defer sess.Close()
 	if err = sess.Begin(); err != nil {
 		return err
 	}
 
-	if _, err = sess.Id(labelID).Delete(new(Label)); err != nil {
+	if _, err = sess.ID(labelID).Delete(new(Label)); err != nil {
 		return err
 	} else if _, err = sess.Where("label_id = ?", labelID).Delete(new(IssueLabel)); err != nil {
 		return err
@@ -213,7 +239,7 @@ func DeleteLabel(repoID, labelID int64) error {
 
 // IssueLabel represetns an issue-lable relation.
 type IssueLabel struct {
-	ID      int64 `xorm:"pk autoincr"`
+	ID      int64
 	IssueID int64 `xorm:"UNIQUE(s)"`
 	LabelID int64 `xorm:"UNIQUE(s)"`
 }
@@ -256,7 +282,7 @@ func NewIssueLabel(issue *Issue, label *Label) (err error) {
 	}
 
 	sess := x.NewSession()
-	defer sessionRelease(sess)
+	defer sess.Close()
 	if err = sess.Begin(); err != nil {
 		return err
 	}
@@ -285,7 +311,7 @@ func newIssueLabels(e *xorm.Session, issue *Issue, labels []*Label) (err error) 
 // NewIssueLabels creates a list of issue-label relations.
 func NewIssueLabels(issue *Issue, labels []*Label) (err error) {
 	sess := x.NewSession()
-	defer sessionRelease(sess)
+	defer sess.Close()
 	if err = sess.Begin(); err != nil {
 		return err
 	}
@@ -335,7 +361,7 @@ func deleteIssueLabel(e *xorm.Session, issue *Issue, label *Label) (err error) {
 // DeleteIssueLabel deletes issue-label relation.
 func DeleteIssueLabel(issue *Issue, label *Label) (err error) {
 	sess := x.NewSession()
-	defer sessionRelease(sess)
+	defer sess.Close()
 	if err = sess.Begin(); err != nil {
 		return err
 	}

@@ -25,24 +25,25 @@ import (
 	"github.com/go-macaron/session"
 	"github.com/go-macaron/toolbox"
 	"github.com/mcuadros/go-version"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/urfave/cli"
 	log "gopkg.in/clog.v1"
 	"gopkg.in/macaron.v1"
 
-	"github.com/gogits/gogs/models"
-	"github.com/gogits/gogs/pkg/bindata"
-	"github.com/gogits/gogs/pkg/context"
-	"github.com/gogits/gogs/pkg/form"
-	"github.com/gogits/gogs/pkg/mailer"
-	"github.com/gogits/gogs/pkg/setting"
-	"github.com/gogits/gogs/pkg/template"
-	"github.com/gogits/gogs/routers"
-	"github.com/gogits/gogs/routers/admin"
-	apiv1 "github.com/gogits/gogs/routers/api/v1"
-	"github.com/gogits/gogs/routers/dev"
-	"github.com/gogits/gogs/routers/org"
-	"github.com/gogits/gogs/routers/repo"
-	"github.com/gogits/gogs/routers/user"
+	"github.com/gogs/gogs/models"
+	"github.com/gogs/gogs/pkg/bindata"
+	"github.com/gogs/gogs/pkg/context"
+	"github.com/gogs/gogs/pkg/form"
+	"github.com/gogs/gogs/pkg/mailer"
+	"github.com/gogs/gogs/pkg/setting"
+	"github.com/gogs/gogs/pkg/template"
+	"github.com/gogs/gogs/routes"
+	"github.com/gogs/gogs/routes/admin"
+	apiv1 "github.com/gogs/gogs/routes/api/v1"
+	"github.com/gogs/gogs/routes/dev"
+	"github.com/gogs/gogs/routes/org"
+	"github.com/gogs/gogs/routes/repo"
+	"github.com/gogs/gogs/routes/user"
 )
 
 var Web = cli.Command{
@@ -64,7 +65,7 @@ func checkVersion() {
 	if err != nil {
 		log.Fatal(2, "Fail to read 'templates/.VERSION': %v", err)
 	}
-	tplVer := string(data)
+	tplVer := strings.TrimSpace(string(data))
 	if tplVer != setting.AppVer {
 		if version.Compare(tplVer, setting.AppVer, ">") {
 			log.Fatal(2, "Binary version is lower than template file version, did you forget to recompile Gogs?")
@@ -85,7 +86,7 @@ func newMacaron() *macaron.Macaron {
 		m.Use(gzip.Gziper())
 	}
 	if setting.Protocol == setting.SCHEME_FCGI {
-		m.SetURLPrefix(setting.AppSubUrl)
+		m.SetURLPrefix(setting.AppSubURL)
 	}
 	m.Use(macaron.Static(
 		path.Join(setting.StaticRootPath, "public"),
@@ -96,7 +97,14 @@ func newMacaron() *macaron.Macaron {
 	m.Use(macaron.Static(
 		setting.AvatarUploadPath,
 		macaron.StaticOptions{
-			Prefix:      "avatars",
+			Prefix:      models.USER_AVATAR_URL_PREFIX,
+			SkipLogging: setting.DisableRouterLog,
+		},
+	))
+	m.Use(macaron.Static(
+		setting.RepositoryAvatarUploadPath,
+		macaron.StaticOptions{
+			Prefix:      models.REPO_AVATAR_URL_PREFIX,
 			SkipLogging: setting.DisableRouterLog,
 		},
 	))
@@ -120,7 +128,7 @@ func newMacaron() *macaron.Macaron {
 		localFiles[name] = bindata.MustAsset("conf/locale/" + name)
 	}
 	m.Use(i18n.I18n(i18n.Options{
-		SubURL:          setting.AppSubUrl,
+		SubURL:          setting.AppSubURL,
 		Files:           localFiles,
 		CustomDirectory: path.Join(setting.CustomPath, "conf/locale"),
 		Langs:           setting.Langs,
@@ -134,7 +142,7 @@ func newMacaron() *macaron.Macaron {
 		Interval:      setting.CacheInterval,
 	}))
 	m.Use(captcha.Captchaer(captcha.Options{
-		SubURL: setting.AppSubUrl,
+		SubURL: setting.AppSubURL,
 	}))
 	m.Use(session.Sessioner(setting.SessionConfig))
 	m.Use(csrf.Csrfer(csrf.Options{
@@ -142,7 +150,7 @@ func newMacaron() *macaron.Macaron {
 		Cookie:     setting.CSRFCookieName,
 		SetCookie:  true,
 		Header:     "X-Csrf-Token",
-		CookiePath: setting.AppSubUrl,
+		CookiePath: setting.AppSubURL,
 	}))
 	m.Use(toolbox.Toolboxer(m, toolbox.Options{
 		HealthCheckFuncs: []*toolbox.HealthCheckFuncDesc{
@@ -156,11 +164,11 @@ func newMacaron() *macaron.Macaron {
 	return m
 }
 
-func runWeb(ctx *cli.Context) error {
-	if ctx.IsSet("config") {
-		setting.CustomConf = ctx.String("config")
+func runWeb(c *cli.Context) error {
+	if c.IsSet("config") {
+		setting.CustomConf = c.String("config")
 	}
-	routers.GlobalInit()
+	routes.GlobalInit()
 	checkVersion()
 
 	m := newMacaron()
@@ -172,26 +180,33 @@ func runWeb(ctx *cli.Context) error {
 
 	bindIgnErr := binding.BindIgnErr
 
+	m.SetAutoHead(true)
+
 	// FIXME: not all routes need go through same middlewares.
 	// Especially some AJAX requests, we can reduce middleware number to improve performance.
 	// Routers.
-	m.Get("/", ignSignIn, routers.Home)
+	m.Get("/", ignSignIn, routes.Home)
 	m.Group("/explore", func() {
-		m.Get("", func(ctx *context.Context) {
-			ctx.Redirect(setting.AppSubUrl + "/explore/repos")
+		m.Get("", func(c *context.Context) {
+			c.Redirect(setting.AppSubURL + "/explore/repos")
 		})
-		m.Get("/repos", routers.ExploreRepos)
-		m.Get("/users", routers.ExploreUsers)
-		m.Get("/organizations", routers.ExploreOrganizations)
+		m.Get("/repos", routes.ExploreRepos)
+		m.Get("/users", routes.ExploreUsers)
+		m.Get("/organizations", routes.ExploreOrganizations)
 	}, ignSignIn)
-	m.Combo("/install", routers.InstallInit).Get(routers.Install).
-		Post(bindIgnErr(form.Install{}), routers.InstallPost)
+	m.Combo("/install", routes.InstallInit).Get(routes.Install).
+		Post(bindIgnErr(form.Install{}), routes.InstallPost)
 	m.Get("/^:type(issues|pulls)$", reqSignIn, user.Issues)
 
 	// ***** START: User *****
 	m.Group("/user", func() {
-		m.Get("/login", user.SignIn)
-		m.Post("/login", bindIgnErr(form.SignIn{}), user.SignInPost)
+		m.Group("/login", func() {
+			m.Combo("").Get(user.Login).
+				Post(bindIgnErr(form.SignIn{}), user.LoginPost)
+			m.Combo("/two_factor").Get(user.LoginTwoFactor).Post(user.LoginTwoFactorPost)
+			m.Combo("/two_factor_recovery_code").Get(user.LoginTwoFactorRecoveryCode).Post(user.LoginTwoFactorRecoveryCodePost)
+		})
+
 		m.Get("/sign_up", user.SignUp)
 		m.Post("/sign_up", bindIgnErr(form.Register{}), user.SignUpPost)
 		m.Get("/reset_password", user.ResetPasswd)
@@ -212,6 +227,14 @@ func runWeb(ctx *cli.Context) error {
 		m.Combo("/ssh").Get(user.SettingsSSHKeys).
 			Post(bindIgnErr(form.AddSSHKey{}), user.SettingsSSHKeysPost)
 		m.Post("/ssh/delete", user.DeleteSSHKey)
+		m.Group("/security", func() {
+			m.Get("", user.SettingsSecurity)
+			m.Combo("/two_factor_enable").Get(user.SettingsTwoFactorEnable).
+				Post(user.SettingsTwoFactorEnablePost)
+			m.Combo("/two_factor_recovery_codes").Get(user.SettingsTwoFactorRecoveryCodes).
+				Post(user.SettingsTwoFactorRecoveryCodesPost)
+			m.Post("/two_factor_disable", user.SettingsTwoFactorDisable)
+		})
 		m.Group("/repositories", func() {
 			m.Get("", user.SettingsRepos)
 			m.Post("/leave", user.SettingsLeaveRepo)
@@ -224,8 +247,8 @@ func runWeb(ctx *cli.Context) error {
 			Post(bindIgnErr(form.NewAccessToken{}), user.SettingsApplicationsPost)
 		m.Post("/applications/delete", user.SettingsDeleteApplication)
 		m.Route("/delete", "GET,POST", user.SettingsDelete)
-	}, reqSignIn, func(ctx *context.Context) {
-		ctx.Data["PageIsUserSettings"] = true
+	}, reqSignIn, func(c *context.Context) {
+		c.Data["PageIsUserSettings"] = true
 	})
 
 	m.Group("/user", func() {
@@ -238,11 +261,11 @@ func runWeb(ctx *cli.Context) error {
 	})
 	// ***** END: User *****
 
-	adminReq := context.Toggle(&context.ToggleOptions{SignInRequired: true, AdminRequired: true})
+	reqAdmin := context.Toggle(&context.ToggleOptions{SignInRequired: true, AdminRequired: true})
 
 	// ***** START: Admin *****
 	m.Group("/admin", func() {
-		m.Get("", adminReq, admin.Dashboard)
+		m.Get("", admin.Dashboard)
 		m.Get("/config", admin.Config)
 		m.Post("/config/test_mail", admin.SendTestMail)
 		m.Get("/monitor", admin.Monitor)
@@ -276,7 +299,7 @@ func runWeb(ctx *cli.Context) error {
 			m.Post("/delete", admin.DeleteNotices)
 			m.Get("/empty", admin.EmptyNotices)
 		})
-	}, adminReq)
+	}, reqAdmin)
 	// ***** END: Admin *****
 
 	m.Group("", func() {
@@ -287,28 +310,28 @@ func runWeb(ctx *cli.Context) error {
 			m.Get("/stars", user.Stars)
 		})
 
-		m.Get("/attachments/:uuid", func(ctx *context.Context) {
-			attach, err := models.GetAttachmentByUUID(ctx.Params(":uuid"))
+		m.Get("/attachments/:uuid", func(c *context.Context) {
+			attach, err := models.GetAttachmentByUUID(c.Params(":uuid"))
 			if err != nil {
-				ctx.NotFoundOrServerError("GetAttachmentByUUID", models.IsErrAttachmentNotExist, err)
+				c.NotFoundOrServerError("GetAttachmentByUUID", models.IsErrAttachmentNotExist, err)
 				return
 			} else if !com.IsFile(attach.LocalPath()) {
-				ctx.NotFound()
+				c.NotFound()
 				return
 			}
 
 			fr, err := os.Open(attach.LocalPath())
 			if err != nil {
-				ctx.Handle(500, "Open", err)
+				c.Handle(500, "Open", err)
 				return
 			}
 			defer fr.Close()
 
-			ctx.Header().Set("Cache-Control", "public,max-age=86400")
+			c.Header().Set("Cache-Control", "public,max-age=86400")
 			fmt.Println("attach.Name:", attach.Name)
-			ctx.Header().Set("Content-Disposition", fmt.Sprintf(`inline; filename="%s"`, attach.Name))
-			if err = repo.ServeData(ctx, attach.Name, fr); err != nil {
-				ctx.Handle(500, "ServeData", err)
+			c.Header().Set("Content-Disposition", fmt.Sprintf(`inline; filename="%s"`, attach.Name))
+			if err = repo.ServeData(c, attach.Name, fr); err != nil {
+				c.Handle(500, "ServeData", err)
 				return
 			}
 		})
@@ -332,9 +355,9 @@ func runWeb(ctx *cli.Context) error {
 		m.Group("", func() {
 			m.Get("/create", org.Create)
 			m.Post("/create", bindIgnErr(form.CreateOrg{}), org.CreatePost)
-		}, func(ctx *context.Context) {
-			if !ctx.User.CanCreateOrganization() {
-				ctx.NotFound()
+		}, func(c *context.Context) {
+			if !c.User.CanCreateOrganization() {
+				c.NotFound()
 			}
 		})
 
@@ -374,10 +397,12 @@ func runWeb(ctx *cli.Context) error {
 					m.Post("/gogs/new", bindIgnErr(form.NewWebhook{}), repo.WebHooksNewPost)
 					m.Post("/slack/new", bindIgnErr(form.NewSlackHook{}), repo.SlackHooksNewPost)
 					m.Post("/discord/new", bindIgnErr(form.NewDiscordHook{}), repo.DiscordHooksNewPost)
+					m.Post("/dingtalk/new", bindIgnErr(form.NewDingtalkHook{}), repo.DingtalkHooksNewPost)
 					m.Get("/:id", repo.WebHooksEdit)
 					m.Post("/gogs/:id", bindIgnErr(form.NewWebhook{}), repo.WebHooksEditPost)
 					m.Post("/slack/:id", bindIgnErr(form.NewSlackHook{}), repo.SlackHooksEditPost)
 					m.Post("/discord/:id", bindIgnErr(form.NewDiscordHook{}), repo.DiscordHooksEditPost)
+					m.Post("/dingtalk/:id", bindIgnErr(form.NewDingtalkHook{}), repo.DingtalkHooksEditPost)
 				})
 
 				m.Route("/delete", "GET,POST", org.SettingsDelete)
@@ -402,6 +427,9 @@ func runWeb(ctx *cli.Context) error {
 		m.Group("/settings", func() {
 			m.Combo("").Get(repo.Settings).
 				Post(bindIgnErr(form.RepoSetting{}), repo.SettingsPost)
+			m.Combo("/avatar").Get(repo.SettingsAvatar).
+				Post(binding.MultipartForm(form.Avatar{}), repo.SettingsAvatarPost)
+			m.Post("/avatar/delete", repo.SettingsDeleteAvatar)
 			m.Group("/collaboration", func() {
 				m.Combo("").Get(repo.SettingsCollaboration).Post(repo.SettingsCollaborationPost)
 				m.Post("/access_mode", repo.ChangeCollaborationAccessMode)
@@ -412,9 +440,9 @@ func runWeb(ctx *cli.Context) error {
 				m.Post("/default_branch", repo.UpdateDefaultBranch)
 				m.Combo("/*").Get(repo.SettingsProtectedBranch).
 					Post(bindIgnErr(form.ProtectBranch{}), repo.SettingsProtectedBranchPost)
-			}, func(ctx *context.Context) {
-				if ctx.Repo.Repository.IsMirror {
-					ctx.NotFound()
+			}, func(c *context.Context) {
+				if c.Repo.Repository.IsMirror {
+					c.NotFound()
 					return
 				}
 			})
@@ -426,9 +454,11 @@ func runWeb(ctx *cli.Context) error {
 				m.Post("/gogs/new", bindIgnErr(form.NewWebhook{}), repo.WebHooksNewPost)
 				m.Post("/slack/new", bindIgnErr(form.NewSlackHook{}), repo.SlackHooksNewPost)
 				m.Post("/discord/new", bindIgnErr(form.NewDiscordHook{}), repo.DiscordHooksNewPost)
+				m.Post("/dingtalk/new", bindIgnErr(form.NewDingtalkHook{}), repo.DingtalkHooksNewPost)
 				m.Post("/gogs/:id", bindIgnErr(form.NewWebhook{}), repo.WebHooksEditPost)
 				m.Post("/slack/:id", bindIgnErr(form.NewSlackHook{}), repo.SlackHooksEditPost)
 				m.Post("/discord/:id", bindIgnErr(form.NewDiscordHook{}), repo.DiscordHooksEditPost)
+				m.Post("/dingtalk/:id", bindIgnErr(form.NewDingtalkHook{}), repo.DingtalkHooksEditPost)
 
 				m.Group("/:id", func() {
 					m.Get("", repo.WebHooksEdit)
@@ -449,8 +479,8 @@ func runWeb(ctx *cli.Context) error {
 				m.Post("/delete", repo.DeleteDeployKey)
 			})
 
-		}, func(ctx *context.Context) {
-			ctx.Data["PageIsSettings"] = true
+		}, func(c *context.Context) {
+			c.Data["PageIsSettings"] = true
 		})
 	}, reqSignIn, context.RepoAssignment(), reqRepoAdmin, context.RepoRef())
 
@@ -517,11 +547,11 @@ func runWeb(ctx *cli.Context) error {
 			m.Post("/delete", repo.DeleteRelease)
 			m.Get("/edit/*", repo.EditRelease)
 			m.Post("/edit/*", bindIgnErr(form.EditRelease{}), repo.EditReleasePost)
-		}, repo.MustBeNotBare, reqRepoWriter, func(ctx *context.Context) {
-			ctx.Data["PageIsViewFiles"] = true
+		}, repo.MustBeNotBare, reqRepoWriter, func(c *context.Context) {
+			c.Data["PageIsViewFiles"] = true
 		})
 
-		// FIXME: Should use ctx.Repo.PullRequest to unify template, currently we have inconsistent URL
+		// FIXME: Should use c.Repo.PullRequest to unify template, currently we have inconsistent URL
 		// for PR in same repository. After select branch on the page, the URL contains redundant head user name.
 		// e.g. /org1/test-repo/compare/master...org1:develop
 		// which should be /org1/test-repo/compare/master...develop
@@ -542,19 +572,19 @@ func runWeb(ctx *cli.Context) error {
 					Post(bindIgnErr(form.UploadRepoFile{}), repo.UploadFilePost)
 				m.Post("/upload-file", repo.UploadFileToServer)
 				m.Post("/upload-remove", bindIgnErr(form.RemoveUploadFile{}), repo.RemoveUploadFileFromServer)
-			}, func(ctx *context.Context) {
+			}, func(c *context.Context) {
 				if !setting.Repository.Upload.Enabled {
-					ctx.NotFound()
+					c.NotFound()
 					return
 				}
 			})
-		}, repo.MustBeNotBare, reqRepoWriter, context.RepoRef(), func(ctx *context.Context) {
-			if !ctx.Repo.CanEnableEditor() {
-				ctx.NotFound()
+		}, repo.MustBeNotBare, reqRepoWriter, context.RepoRef(), func(c *context.Context) {
+			if !c.Repo.CanEnableEditor() {
+				c.NotFound()
 				return
 			}
 
-			ctx.Data["PageIsViewFiles"] = true
+			c.Data["PageIsViewFiles"] = true
 		})
 	}, reqSignIn, context.RepoAssignment())
 
@@ -569,8 +599,8 @@ func runWeb(ctx *cli.Context) error {
 			m.Get("", repo.Branches)
 			m.Get("/all", repo.AllBranches)
 			m.Post("/delete/*", reqSignIn, reqRepoWriter, repo.DeleteBranchPost)
-		}, repo.MustBeNotBare, func(ctx *context.Context) {
-			ctx.Data["PageIsViewFiles"] = true
+		}, repo.MustBeNotBare, func(c *context.Context) {
+			c.Data["PageIsViewFiles"] = true
 		})
 
 		m.Group("/wiki", func() {
@@ -618,8 +648,10 @@ func runWeb(ctx *cli.Context) error {
 		// e.g. with or without ".git" suffix.
 		m.Group("/:reponame([\\d\\w-_\\.]+\\.git$)", func() {
 			m.Get("", ignSignIn, context.RepoAssignment(), context.RepoRef(), repo.Home)
+			m.Options("/*", ignSignInAndCsrf, repo.HTTPContexter(), repo.HTTP)
 			m.Route("/*", "GET,POST", ignSignInAndCsrf, repo.HTTPContexter(), repo.HTTP)
 		})
+		m.Options("/:reponame/*", ignSignInAndCsrf, repo.HTTPContexter(), repo.HTTP)
 		m.Route("/:reponame/*", "GET,POST", ignSignInAndCsrf, repo.HTTPContexter(), repo.HTTP)
 	})
 	// ***** END: Repository *****
@@ -628,22 +660,34 @@ func runWeb(ctx *cli.Context) error {
 		apiv1.RegisterRoutes(m)
 	}, ignSignIn)
 
+	m.Group("/-", func() {
+		if setting.Prometheus.Enabled {
+			m.Get("/metrics", func(c *context.Context) {
+				if !setting.Prometheus.EnableBasicAuth {
+					return
+				}
+
+				c.RequireBasicAuth(setting.Prometheus.BasicAuthUsername, setting.Prometheus.BasicAuthPassword)
+			}, promhttp.Handler())
+		}
+	})
+
 	// robots.txt
-	m.Get("/robots.txt", func(ctx *context.Context) {
+	m.Get("/robots.txt", func(c *context.Context) {
 		if setting.HasRobotsTxt {
-			ctx.ServeFileContent(path.Join(setting.CustomPath, "robots.txt"))
+			c.ServeFileContent(path.Join(setting.CustomPath, "robots.txt"))
 		} else {
-			ctx.Error(404)
+			c.NotFound()
 		}
 	})
 
 	// Not found handler.
-	m.NotFound(routers.NotFound)
+	m.NotFound(routes.NotFound)
 
 	// Flag for port number in case first time run conflict.
-	if ctx.IsSet("port") {
-		setting.AppUrl = strings.Replace(setting.AppUrl, setting.HTTPPort, ctx.String("port"), 1)
-		setting.HTTPPort = ctx.String("port")
+	if c.IsSet("port") {
+		setting.AppURL = strings.Replace(setting.AppURL, setting.HTTPPort, c.String("port"), 1)
+		setting.HTTPPort = c.String("port")
 	}
 
 	var listenAddr string
@@ -652,15 +696,28 @@ func runWeb(ctx *cli.Context) error {
 	} else {
 		listenAddr = fmt.Sprintf("%s:%s", setting.HTTPAddr, setting.HTTPPort)
 	}
-	log.Info("Listen: %v://%s%s", setting.Protocol, listenAddr, setting.AppSubUrl)
+	log.Info("Listen: %v://%s%s", setting.Protocol, listenAddr, setting.AppSubURL)
 
 	var err error
 	switch setting.Protocol {
 	case setting.SCHEME_HTTP:
 		err = http.ListenAndServe(listenAddr, m)
 	case setting.SCHEME_HTTPS:
+		var tlsMinVersion uint16
+		switch setting.TLSMinVersion {
+		case "SSL30":
+			tlsMinVersion = tls.VersionSSL30
+		case "TLS12":
+			tlsMinVersion = tls.VersionTLS12
+		case "TLS11":
+			tlsMinVersion = tls.VersionTLS11
+		case "TLS10":
+			fallthrough
+		default:
+			tlsMinVersion = tls.VersionTLS10
+		}
 		server := &http.Server{Addr: listenAddr, TLSConfig: &tls.Config{
-			MinVersion:               tls.VersionTLS10,
+			MinVersion:               tlsMinVersion,
 			CurvePreferences:         []tls.CurveID{tls.CurveP521, tls.CurveP384, tls.CurveP256},
 			PreferServerCipherSuites: true,
 			CipherSuites: []uint16{
@@ -693,7 +750,7 @@ func runWeb(ctx *cli.Context) error {
 	}
 
 	if err != nil {
-		log.Fatal(4, "Fail to start server: %v", err)
+		log.Fatal(4, "Failed to start server: %v", err)
 	}
 
 	return nil

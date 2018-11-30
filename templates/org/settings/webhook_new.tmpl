@@ -10,9 +10,9 @@
 					{{if .PageIsSettingsHooksNew}}{{.i18n.Tr "repo.settings.add_webhook"}}{{else}}{{.i18n.Tr "repo.settings.update_webhook"}}{{end}}
 					<div class="ui right">
 						{{if eq .HookType "gogs"}}
-							<img class="img-13" src="{{AppSubUrl}}/img/favicon.png">
+							<img class="img-13" src="{{AppSubURL}}/img/favicon.png">
 						{{else}}
-							<img class="img-13" src="{{AppSubUrl}}/img/{{.HookType}}.png">
+							<img class="img-13" src="{{AppSubURL}}/img/{{.HookType}}.png">
 						{{end}}
 					</div>
 				</h4>
@@ -20,6 +20,7 @@
 					{{template "repo/settings/webhook/gogs" .}}
 					{{template "repo/settings/webhook/slack" .}}
 					{{template "repo/settings/webhook/discord" .}}
+					{{template "repo/settings/webhook/dingtalk" .}}
 				</div>
 
 				{{template "repo/settings/webhook/history" .}}

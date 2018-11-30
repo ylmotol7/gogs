@@ -4,10 +4,15 @@
   display: inline-block;
   background-size: contain;
 }
-body {
+body:not(.full-width) {
   font-family: "PingFang SC", "Helvetica Neue", "Microsoft YaHei", Arial, Helvetica, sans-serif !important;
   background-color: #fff;
   overflow-y: scroll;
+  overflow-x: auto;
+  min-width: 1020px;
+}
+.ui.container:not(.fluid) {
+  width: 980px !important;
 }
 h1,
 h2,
@@ -41,7 +46,6 @@ code.raw {
 pre.wrap,
 code.wrap {
   white-space: pre-wrap;
-  /* CSS 3 */
   word-break: break-word;
 }
 .dont-break-out {
@@ -79,6 +83,7 @@ code.wrap {
 }
 .following.bar .top.menu a.item.brand {
   padding-left: 0;
+  padding-right: 0;
 }
 .following.bar .brand .ui.mini.image {
   width: 30px;
@@ -135,6 +140,9 @@ code.wrap {
 }
 .ui.form .ui.button {
   font-weight: normal;
+}
+.ui.form .box.field {
+  padding-left: 27px;
 }
 .ui.menu,
 .ui.vertical.menu,
@@ -342,6 +350,9 @@ footer .ui.language .menu {
 .center {
   text-align: center;
 }
+.no-padding-left {
+  padding-left: 0 !important;
+}
 .img-1 {
   width: 2px !important;
   height: 2px !important;
@@ -434,6 +445,14 @@ footer .ui.language .menu {
 .hljs {
   background: inherit !important;
   padding: 0 !important;
+}
+.ui.dropdown .menu > .item > .image,
+.ui.dropdown .menu > .item > img,
+.ui.dropdown > .text > .image,
+.ui.dropdown > .text > img {
+  vertical-align: middle;
+  margin-top: 0;
+  margin-bottom: 0;
 }
 .markdown:not(code) {
   overflow: hidden;
@@ -960,7 +979,7 @@ footer .ui.language .menu {
 }
 #create-page-form form input,
 #create-page-form form textarea {
-  width: 50%!important;
+  width: 50% !important;
 }
 .user.activate form,
 .user.forgot.password form,
@@ -1017,14 +1036,14 @@ footer .ui.language .menu {
 .user.reset.password form textarea,
 .user.signin form textarea,
 .user.signup form textarea {
-  width: 50%!important;
+  width: 50% !important;
 }
 .user.activate form,
 .user.forgot.password form,
 .user.reset.password form,
 .user.signin form,
 .user.signup form {
-  width: 700px!important;
+  width: 700px !important;
 }
 .user.activate form .header,
 .user.forgot.password form .header,
@@ -1039,6 +1058,12 @@ footer .ui.language .menu {
 .user.signin form .inline.field > label,
 .user.signup form .inline.field > label {
   width: 200px !important;
+}
+.user.signin.two-factor form {
+  width: 300px !important;
+}
+.user.signin.two-factor form .header {
+  padding-left: inherit !important;
 }
 .repository.new.repo form,
 .repository.new.migrate form,
@@ -1079,7 +1104,7 @@ footer .ui.language .menu {
 .repository.new.repo form textarea,
 .repository.new.migrate form textarea,
 .repository.new.fork form textarea {
-  width: 50%!important;
+  width: 50% !important;
 }
 .repository.new.repo form .dropdown .dropdown.icon,
 .repository.new.migrate form .dropdown .dropdown.icon,
@@ -1324,6 +1349,9 @@ footer .ui.language .menu {
 .repository.file.list #repo-files-table tr:hover {
   background-color: #ffffEE;
 }
+.repository.file.list #file-content .header .octicon {
+  padding-right: 5px;
+}
 .repository.file.list #file-content .header .icon {
   font-size: 1em;
   margin-top: -2px;
@@ -1388,6 +1416,9 @@ footer .ui.language .menu {
 }
 .repository.file.list #file-content #ipython-notebook .nb-cell.nb-heading-cell {
   margin-top: 0.5em;
+}
+.repository.file.list #file-content #ipython-notebook .nb-cell img {
+  max-width: 100%;
 }
 .repository.file.list #file-content #ipython-notebook .nb-raw-cell {
   white-space: pre-wrap;
@@ -1464,12 +1495,15 @@ footer .ui.language .menu {
 .repository.file.list #file-content .code-view table {
   width: 100%;
 }
+.repository.file.list #file-content .code-view table tbody tr {
+  padding: 0 !important;
+}
 .repository.file.list #file-content .code-view .lines-num {
   vertical-align: top;
   text-align: right;
   color: #999;
   background: #f5f5f5;
-  width: 1%;
+  width: 42px;
 }
 .repository.file.list #file-content .code-view .lines-num span {
   line-height: 20px;
@@ -1479,7 +1513,8 @@ footer .ui.language .menu {
 }
 .repository.file.list #file-content .code-view .lines-num,
 .repository.file.list #file-content .code-view .lines-code {
-  padding: 0;
+  display: table-cell !important;
+  padding: 0 !important;
 }
 .repository.file.list #file-content .code-view .lines-num pre,
 .repository.file.list #file-content .code-view .lines-code pre,
@@ -1695,6 +1730,9 @@ footer .ui.language .menu {
 .repository.view.issue .pull .merge.box .avatar {
   margin-left: 10px;
   margin-top: 10px;
+}
+.repository.view.issue .pull .merge.box #commit_description {
+  height: auto;
 }
 .repository.view.issue .comment-list:before {
   display: block;
@@ -2122,6 +2160,10 @@ footer .ui.language .menu {
 .repository .diff-file-box .code-diff .lines-num {
   border-right: 1px solid #d4d4d5;
   padding: 0 5px;
+  user-select: none;
+}
+.repository .diff-file-box .code-diff .lines-num::before {
+  content: attr(data-line-number);
 }
 .repository .diff-file-box .code-diff .lines-num.lines-num-old,
 .repository .diff-file-box .code-diff .lines-num.lines-num-new {
@@ -2185,6 +2227,10 @@ footer .ui.language .menu {
   overflow: auto;
   overflow-x: auto;
   overflow-y: hidden;
+}
+.repository .code-view table {
+  width: 100%;
+  border-spacing: 0;
 }
 .repository.quickstart .guide .item {
   padding: 1em;
@@ -2322,19 +2368,17 @@ footer .ui.language .menu {
 .repository.wiki.view .ui.sub.header {
   text-transform: none;
 }
-.repository.wiki.view > .markdown {
-  padding: 15px 30px;
+.repository.wiki.view .markdown {
+  padding-left: 25px;
+  margin-left: -25px;
 }
-.repository.wiki.view > .markdown h1:first-of-type,
-.repository.wiki.view > .markdown h2:first-of-type,
-.repository.wiki.view > .markdown h3:first-of-type,
-.repository.wiki.view > .markdown h4:first-of-type,
-.repository.wiki.view > .markdown h5:first-of-type,
-.repository.wiki.view > .markdown h6:first-of-type {
+.repository.wiki.view .markdown h1:first-of-type,
+.repository.wiki.view .markdown h2:first-of-type,
+.repository.wiki.view .markdown h3:first-of-type,
+.repository.wiki.view .markdown h4:first-of-type,
+.repository.wiki.view .markdown h5:first-of-type,
+.repository.wiki.view .markdown h6:first-of-type {
   margin-top: 0;
-}
-.repository.settings.options .box.field {
-  padding-left: 27px;
 }
 .repository.settings.collaboration .collaborator.list {
   padding: 0;
@@ -2379,6 +2423,9 @@ footer .ui.language .menu {
 }
 .repository.settings.webhooks .types .menu .item {
   padding: 10px !important;
+}
+.repository.settings.webhooks .logo.item img {
+  margin-top: -4px;
 }
 .repository.settings.webhook .text.desc {
   margin-top: 5px;
@@ -2752,7 +2799,7 @@ footer .ui.language .menu {
 }
 .organization.new.org form input,
 .organization.new.org form textarea {
-  width: 50%!important;
+  width: 50% !important;
 }
 .organization.options input {
   min-width: 300px;
@@ -2856,15 +2903,16 @@ footer .ui.language .menu {
 .user.settings .email.list .item:not(:first-child) .button {
   margin-top: -10px;
 }
-.user.settings.organizations .orgs.non-empty {
-  padding: 0;
+.user.settings .email.list .item .ui.primary.label {
+  margin-top: -5px;
 }
-.user.settings.organizations .orgs .item {
-  padding: 10px;
+.user.settings.sshkeys .right.floated.button,
+.user.settings.applications .right.floated.button {
+  padding-top: 1rem;
+  padding-bottom: 1rem;
 }
-.user.settings.organizations .orgs .item .button {
-  margin-top: 5px;
-  margin-right: 8px;
+.user.settings.security .two-factor .toggle.button {
+  margin-top: -5px;
 }
 .user.settings.repositories .repos {
   padding: 0;
@@ -2875,6 +2923,16 @@ footer .ui.language .menu {
 }
 .user.settings.repositories .repos .item .button {
   margin-top: -5px;
+}
+.user.settings.organizations .orgs.non-empty {
+  padding: 0;
+}
+.user.settings.organizations .orgs .item {
+  padding: 10px;
+}
+.user.settings.organizations .orgs .item .button {
+  margin-top: 5px;
+  margin-right: 8px;
 }
 .user.profile .ui.card .header {
   word-break: break-all;
@@ -2976,6 +3034,7 @@ footer .ui.language .menu {
 }
 .feeds .news p {
   line-height: 1em;
+  overflow-wrap: break-word;
 }
 .feeds .news .time-since {
   font-size: 13px;
@@ -2987,7 +3046,7 @@ footer .ui.language .menu {
 .feeds .news .push.news .content ul {
   font-size: 13px;
   list-style: none;
-  padding-left: 10px;
+  padding-left: 0;
 }
 .feeds .news .push.news .content ul img {
   margin-bottom: -2px;
@@ -3101,11 +3160,11 @@ footer .ui.language .menu {
   background-color: #f7f7f7;
   padding: 5px;
 }
+.admin.config code {
+  color: #db2828;
+}
 .admin.config .log-config table tbody tr td:first-child {
   width: 100px;
-}
-.admin.config .log-config table tbody tr td:not(first-child) {
-  max-width: 0;
 }
 .explore {
   padding-top: 15px;

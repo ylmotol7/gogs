@@ -5,15 +5,16 @@
 package models
 
 import (
-	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
 
-	"github.com/gogits/git-module"
-	api "github.com/gogits/go-gogs-client"
+	"github.com/json-iterator/go"
 
-	"github.com/gogits/gogs/pkg/setting"
+	"github.com/gogs/git-module"
+	api "github.com/gogs/go-gogs-client"
+
+	"github.com/gogs/gogs/pkg/setting"
 )
 
 type DiscordEmbedFooterObject struct {
@@ -49,7 +50,7 @@ type DiscordPayload struct {
 }
 
 func (p *DiscordPayload) JSONPayload() ([]byte, error) {
-	data, err := json.MarshalIndent(p, "", "  ")
+	data, err := jsoniter.MarshalIndent(p, "", "  ")
 	if err != nil {
 		return []byte{}, err
 	}
@@ -77,7 +78,7 @@ func getDiscordCreatePayload(p *api.CreatePayload) (*DiscordPayload, error) {
 	return &DiscordPayload{
 		Embeds: []*DiscordEmbedObject{{
 			Description: content,
-			URL:         setting.AppUrl + p.Sender.UserName,
+			URL:         setting.AppURL + p.Sender.UserName,
 			Author: &DiscordEmbedAuthorObject{
 				Name:    p.Sender.UserName,
 				IconURL: p.Sender.AvatarUrl,
@@ -94,7 +95,7 @@ func getDiscordDeletePayload(p *api.DeletePayload) (*DiscordPayload, error) {
 	return &DiscordPayload{
 		Embeds: []*DiscordEmbedObject{{
 			Description: content,
-			URL:         setting.AppUrl + p.Sender.UserName,
+			URL:         setting.AppURL + p.Sender.UserName,
 			Author: &DiscordEmbedAuthorObject{
 				Name:    p.Sender.UserName,
 				IconURL: p.Sender.AvatarUrl,
@@ -111,7 +112,7 @@ func getDiscordForkPayload(p *api.ForkPayload) (*DiscordPayload, error) {
 	return &DiscordPayload{
 		Embeds: []*DiscordEmbedObject{{
 			Description: content,
-			URL:         setting.AppUrl + p.Sender.UserName,
+			URL:         setting.AppURL + p.Sender.UserName,
 			Author: &DiscordEmbedAuthorObject{
 				Name:    p.Sender.UserName,
 				IconURL: p.Sender.AvatarUrl,
@@ -159,7 +160,7 @@ func getDiscordPushPayload(p *api.PushPayload, slack *SlackMeta) (*DiscordPayloa
 		AvatarURL: slack.IconURL,
 		Embeds: []*DiscordEmbedObject{{
 			Description: content,
-			URL:         setting.AppUrl + p.Sender.UserName,
+			URL:         setting.AppURL + p.Sender.UserName,
 			Color:       int(color),
 			Author: &DiscordEmbedAuthorObject{
 				Name:    p.Sender.UserName,
@@ -360,7 +361,7 @@ func getDiscordReleasePayload(p *api.ReleasePayload) (*DiscordPayload, error) {
 	return &DiscordPayload{
 		Embeds: []*DiscordEmbedObject{{
 			Description: content,
-			URL:         setting.AppUrl + p.Sender.UserName,
+			URL:         setting.AppURL + p.Sender.UserName,
 			Author: &DiscordEmbedAuthorObject{
 				Name:    p.Sender.UserName,
 				IconURL: p.Sender.AvatarUrl,
@@ -371,8 +372,8 @@ func getDiscordReleasePayload(p *api.ReleasePayload) (*DiscordPayload, error) {
 
 func GetDiscordPayload(p api.Payloader, event HookEventType, meta string) (payload *DiscordPayload, err error) {
 	slack := &SlackMeta{}
-	if err := json.Unmarshal([]byte(meta), &slack); err != nil {
-		return nil, fmt.Errorf("json.Unmarshal: %v", err)
+	if err := jsoniter.Unmarshal([]byte(meta), &slack); err != nil {
+		return nil, fmt.Errorf("jsoniter.Unmarshal: %v", err)
 	}
 
 	switch event {

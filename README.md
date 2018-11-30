@@ -1,9 +1,9 @@
-Gogs [![Build Status](https://travis-ci.org/gogits/gogs.svg?branch=master)](https://travis-ci.org/gogits/gogs) [![Build status](https://ci.appveyor.com/api/projects/status/b9uu5ejl933e2wlt/branch/master?svg=true)](https://ci.appveyor.com/project/Unknwon/gogs/branch/master) [![Crowdin](https://d322cqt584bo4o.cloudfront.net/gogs/localized.svg)](https://crowdin.com/project/gogs) [![Sourcegraph](https://sourcegraph.com/github.com/gogits/gogs/-/badge.svg)](https://sourcegraph.com/github.com/gogits/gogs?badge) [![Gitter](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/gogits/gogs?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+Gogs [![Build Status](https://travis-ci.org/gogs/gogs.svg?branch=master)](https://travis-ci.org/gogs/gogs) [![Build status](https://ci.appveyor.com/api/projects/status/b9uu5ejl933e2wlt/branch/master?svg=true)](https://ci.appveyor.com/project/Unknwon/gogs/branch/master) [![Crowdin](https://d322cqt584bo4o.cloudfront.net/gogs/localized.svg)](https://crowdin.com/project/gogs) [![Discord](https://img.shields.io/discord/382595433060499458.svg)](https://discord.gg/9aqdHU7)
 =====================
 
-![](https://github.com/gogits/gogs/blob/master/public/img/gogs-large-resize.png?raw=true)
+![](https://github.com/gogs/gogs/blob/master/public/img/gogs-large-resize.png?raw=true)
 
-##### Current tip version: [`.VERSION`](templates/.VERSION) (see [Releases](https://github.com/gogits/gogs/releases) for binary versions)
+##### Current tip version: [`.VERSION`](templates/.VERSION) (see [Releases](https://github.com/gogs/gogs/releases) for binary versions)
 
 | Web | UI  | Preview  |
 |:-------------:|:-------:|:-------:|
@@ -13,18 +13,18 @@ Gogs [![Build Status](https://travis-ci.org/gogits/gogs.svg?branch=master)](http
 
 ### Important Notes
 
-1. **YOU MUST READ [Contributing Code](https://github.com/gogits/gogs/wiki/Contributing-Code) BEFORE STARTING TO WORK ON A PULL REQUEST**.
+1. **YOU MUST READ [Contributing Code](https://github.com/gogs/gogs/wiki/Contributing-Code) BEFORE STARTING TO WORK ON A PULL REQUEST**.
 2. Due to testing purpose, data of [try.gogs.io](https://try.gogs.io) was reset in **Jan 28, 2015** and will reset multiple times after. Please do **NOT** put your important data on the site.
 3. The demo site [try.gogs.io](https://try.gogs.io) is running under `develop` branch.
 4. If you think there are vulnerabilities in the project, please talk privately to **u@gogs.io**, and the name you want to be credited as. Thanks!
-5. If you're interested in using APIs, we have experimental support with [documentation](https://github.com/gogits/go-gogs-client/wiki).
+5. If you're interested in using APIs, we have experimental support with [documentation](https://github.com/gogs/go-gogs-client/wiki).
 6. If your team/company is using Gogs and would like to put your logo on [our website](https://gogs.io), contact us by any means.
 
 [简体中文](README_ZH.md)
 
-## Purpose
+## Vision
 
-The goal of this project is to make the easiest, fastest, and most painless way of setting up a self-hosted Git service. With Go, this can be done with an independent binary distribution across **ALL platforms** that Go supports, including Linux, Mac OS X, Windows and ARM.
+This project aims to build a simple, stable and extensible self-hosted Git service that can be setup in the most painless way. With Go, this can be done with an independent binary distribution across **ALL platforms** that Go supports, including Linux, macOS, Windows and ARM.
 
 ## Overview
 
@@ -47,11 +47,12 @@ The goal of this project is to make the easiest, fastest, and most painless way 
 - Migrate and mirror repository and its wiki
 - Web editor for repository files and wiki
 - Jupyter Notebook
+- Two-factor authentication
 - Gravatar and Federated avatar with custom source
 - Mail service
 - Administration panel
 - Supports MySQL, PostgreSQL, SQLite3, MSSQL and [TiDB](https://github.com/pingcap/tidb) (via MySQL protocol)
-- Multi-language support ([23 languages](https://crowdin.com/project/gogs))
+- Multi-language support ([29 languages](https://crowdin.com/project/gogs))
 
 ## Hardware Requirements
 
@@ -73,7 +74,7 @@ There are 5 ways to install Gogs:
 - [Install from binary](https://gogs.io/docs/installation/install_from_binary.html)
 - [Install from source](https://gogs.io/docs/installation/install_from_source.html)
 - [Install from packages](https://gogs.io/docs/installation/install_from_packages.html)
-- [Ship with Docker](https://github.com/gogits/gogs/tree/master/docker)
+- [Ship with Docker](https://github.com/gogs/gogs/tree/master/docker)
 - [Install with Vagrant](https://github.com/geerlingguy/ansible-vagrant-examples/tree/master/gogs)
 
 ### Tutorials
@@ -113,6 +114,7 @@ There are 5 ways to install Gogs:
 - [Kanboard](http://kanboard.net/plugin/gogs-webhook) (Project Management)
 - [BearyChat](https://bearychat.com/) (Team Communication)
 - [HiWork](http://www.hiwork.cc/) (Team Communication)
+- [GitPitch](https://gitpitch.com/) (Markdown Presentations)
 
 ### Product Support
 
@@ -122,15 +124,17 @@ There are 5 ways to install Gogs:
 ## Acknowledgments
 
 - Thanks [Egon Elbre](https://twitter.com/egonelbre) for designing logo.
-- Thanks [Crowdin](https://crowdin.com/project/gogs) for providing open source translation plan.
-- Thanks [DigitalOcean](https://www.digitalocean.com) for hosting home and demo sites.
-- Thanks [KeyCDN](https://www.keycdn.com/) and [QiNiu](http://www.qiniu.com/) for providing CDN service.
+- Thanks [Crowdin](https://crowdin.com/project/gogs) for sponsoring open source translation plan.
+- Thanks [DigitalOcean](https://www.digitalocean.com) and [VPSServer](https://www.vpsserver.com/) for sponsoring VPS service.
+- Thanks [KeyCDN](https://www.keycdn.com/) for sponsoring CDN service.
 
 ## Contributors
 
-- See [contributors page](https://github.com/gogits/gogs/graphs/contributors) for top 100 contributors.
+- See [contributors page](https://github.com/gogs/gogs/graphs/contributors) for top 100 contributors.
 - See [TRANSLATORS](conf/locale/TRANSLATORS) for public list of translators.
 
 ## License
 
-This project is under the MIT License. See the [LICENSE](https://github.com/gogits/gogs/blob/master/LICENSE) file for the full license text.
+This project is under the MIT License. See the [LICENSE](https://github.com/gogs/gogs/blob/master/LICENSE) file for the full license text.
+
+[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fgogs%2Fgogs.svg?type=small)](https://app.fossa.io/projects/git%2Bgithub.com%2Fgogs%2Fgogs?ref=badge_small)

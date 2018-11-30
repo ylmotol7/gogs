@@ -18,8 +18,8 @@ import (
 	"golang.org/x/crypto/ssh"
 	log "gopkg.in/clog.v1"
 
-	"github.com/gogits/gogs/models"
-	"github.com/gogits/gogs/pkg/setting"
+	"github.com/gogs/gogs/models"
+	"github.com/gogs/gogs/pkg/setting"
 )
 
 func cleanCommand(cmd string) string {
@@ -175,11 +175,11 @@ func Listen(host string, port int, ciphers []string) {
 
 	privateBytes, err := ioutil.ReadFile(keyPath)
 	if err != nil {
-		panic("SSH: Fail to load private key")
+		panic("SSH: Fail to load private key: " + err.Error())
 	}
 	private, err := ssh.ParsePrivateKey(privateBytes)
 	if err != nil {
-		panic("SSH: Fail to parse private key")
+		panic("SSH: Fail to parse private key: " + err.Error())
 	}
 	config.AddHostKey(private)
 

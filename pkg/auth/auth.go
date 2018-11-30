@@ -13,10 +13,10 @@ import (
 	log "gopkg.in/clog.v1"
 	"gopkg.in/macaron.v1"
 
-	"github.com/gogits/gogs/models"
-	"github.com/gogits/gogs/models/errors"
-	"github.com/gogits/gogs/pkg/tool"
-	"github.com/gogits/gogs/pkg/setting"
+	"github.com/gogs/gogs/models"
+	"github.com/gogs/gogs/models/errors"
+	"github.com/gogs/gogs/pkg/setting"
+	"github.com/gogs/gogs/pkg/tool"
 )
 
 func IsAPIPath(url string) bool {
@@ -24,17 +24,20 @@ func IsAPIPath(url string) bool {
 }
 
 // SignedInID returns the id of signed in user.
-func SignedInID(ctx *macaron.Context, sess session.Store) int64 {
+func SignedInID(c *macaron.Context, sess session.Store) int64 {
 	if !models.HasEngine {
 		return 0
 	}
 
 	// Check access token.
-	if IsAPIPath(ctx.Req.URL.Path) {
-		tokenSHA := ctx.Query("token")
+	if IsAPIPath(c.Req.URL.Path) {
+		tokenSHA := c.Query("token")
+		if len(tokenSHA) <= 0 {
+			tokenSHA = c.Query("access_token")
+		}
 		if len(tokenSHA) == 0 {
 			// Well, check with header again.
-			auHead := ctx.Req.Header.Get("Authorization")
+			auHead := c.Req.Header.Get("Authorization")
 			if len(auHead) > 0 {
 				auths := strings.Fields(auHead)
 				if len(auths) == 2 && auths[0] == "token" {
@@ -124,10 +127,10 @@ func SignedInUser(ctx *macaron.Context, sess session.Store) (*models.User, bool)
 			if len(auths) == 2 && auths[0] == "Basic" {
 				uname, passwd, _ := tool.BasicAuthDecode(auths[1])
 
-				u, err := models.UserSignIn(uname, passwd)
+				u, err := models.UserLogin(uname, passwd, -1)
 				if err != nil {
 					if !errors.IsUserNotExist(err) {
-						log.Error(4, "UserSignIn: %v", err)
+						log.Error(4, "UserLogin: %v", err)
 					}
 					return nil, false
 				}

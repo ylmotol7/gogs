@@ -9,7 +9,7 @@ import (
 
 	log "gopkg.in/clog.v1"
 
-	"github.com/gogits/gogs/models/errors"
+	"github.com/gogs/gogs/models/errors"
 )
 
 type AccessMode int
@@ -53,7 +53,7 @@ func ParseAccessMode(permission string) AccessMode {
 // that is not in this table is the real owner of a repository. In case of an organization
 // repository, the members of the owners team are in this table.
 type Access struct {
-	ID     int64 `xorm:"pk autoincr"`
+	ID     int64
 	UserID int64 `xorm:"UNIQUE(s)"`
 	RepoID int64 `xorm:"UNIQUE(s)"`
 	Mode   AccessMode
@@ -112,14 +112,12 @@ func (u *User) GetRepositoryAccesses() (map[*Repository]AccessMode, error) {
 		repo, err := GetRepositoryByID(access.RepoID)
 		if err != nil {
 			if errors.IsRepoNotExist(err) {
-				log.Error(4, "GetRepositoryByID: %v", err)
+				log.Error(2, "GetRepositoryByID: %v", err)
 				continue
 			}
 			return nil, err
 		}
-		if err = repo.GetOwner(); err != nil {
-			return nil, err
-		} else if repo.OwnerID == u.ID {
+		if repo.OwnerID == u.ID {
 			continue
 		}
 		repos[repo] = access.Mode
@@ -239,6 +237,6 @@ func (repo *Repository) recalculateAccesses(e Engine) error {
 }
 
 // RecalculateAccesses recalculates all accesses for repository.
-func (r *Repository) RecalculateAccesses() error {
-	return r.recalculateAccesses(x)
+func (repo *Repository) RecalculateAccesses() error {
+	return repo.recalculateAccesses(x)
 }

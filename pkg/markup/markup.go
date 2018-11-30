@@ -14,13 +14,18 @@ import (
 	"github.com/Unknwon/com"
 	"golang.org/x/net/html"
 
-	"github.com/gogits/gogs/pkg/tool"
-	"github.com/gogits/gogs/pkg/setting"
+	"github.com/gogs/gogs/pkg/setting"
+	"github.com/gogs/gogs/pkg/tool"
 )
 
 // IsReadmeFile reports whether name looks like a README file based on its extension.
 func IsReadmeFile(name string) bool {
 	return strings.HasPrefix(strings.ToLower(name), "readme")
+}
+
+// IsIPythonNotebook reports whether name looks like a IPython notebook based on its extension.
+func IsIPythonNotebook(name string) bool {
+	return strings.HasSuffix(name, ".ipynb")
 }
 
 const (
@@ -40,17 +45,16 @@ var (
 	// e.g. https://try.gogs.io/gogs/gogs/issues/4#issue-685
 	IssueFullPattern = regexp.MustCompile(`(\s|^)https?.*issues/[0-9]+(#+[0-9a-zA-Z-]*)?`)
 	// IssueNumericPattern matches string that references to a numeric issue, e.g. #1287
-	IssueNumericPattern = regexp.MustCompile(`( |^|\()#[0-9]+\b`)
+	IssueNumericPattern = regexp.MustCompile(`( |^|\(|\[)#[0-9]+\b`)
 	// IssueAlphanumericPattern matches string that references to an alphanumeric issue, e.g. ABC-1234
-	IssueAlphanumericPattern = regexp.MustCompile(`( |^|\()[A-Z]{1,10}-[1-9][0-9]*\b`)
+	IssueAlphanumericPattern = regexp.MustCompile(`( |^|\(|\[)[A-Z]{1,10}-[1-9][0-9]*\b`)
 	// CrossReferenceIssueNumericPattern matches string that references a numeric issue in a difference repository
-	// e.g. gogits/gogs#12345
+	// e.g. gogs/gogs#12345
 	CrossReferenceIssueNumericPattern = regexp.MustCompile(`( |^)[0-9a-zA-Z-_\.]+/[0-9a-zA-Z-_\.]+#[0-9]+\b`)
 
 	// Sha1CurrentPattern matches string that represents a commit SHA, e.g. d8a994ef243349f321568f9e36d5c3f444b99cae
-	// FIXME: this pattern matches pure numbers as well, right now we do a hack to check in RenderSha1CurrentPattern
-	// by converting string to a number.
-	Sha1CurrentPattern = regexp.MustCompile(`\b[0-9a-f]{40}\b`)
+	// FIXME: this pattern matches pure numbers as well, right now we do a hack to check in RenderSha1CurrentPattern by converting string to a number.
+	Sha1CurrentPattern = regexp.MustCompile(`\b[0-9a-f]{7,40}\b`)
 )
 
 // FindAllMentions matches mention patterns in given content
@@ -74,7 +78,7 @@ func cutoutVerbosePrefix(prefix string) string {
 		if prefix[i] == '/' {
 			count++
 		}
-		if count >= 3+setting.AppSubUrlDepth {
+		if count >= 3+setting.AppSubURLDepth {
 			return prefix[:i]
 		}
 	}
@@ -92,8 +96,9 @@ func RenderIssueIndexPattern(rawBytes []byte, urlPrefix string, metas map[string
 
 	ms := pattern.FindAll(rawBytes, -1)
 	for _, m := range ms {
-		if m[0] == ' ' || m[0] == '(' {
-			m = m[1:] // ignore leading space or opening parentheses
+		if m[0] == ' ' || m[0] == '(' || m[0] == '[' {
+			// ignore leading space, opening parentheses, or opening square brackets
+			m = m[1:]
 		}
 		var link string
 		if metas == nil {
@@ -128,7 +133,7 @@ func RenderCrossReferenceIssueIndexPattern(rawBytes []byte, urlPrefix string, me
 		repo := string(m[:delimIdx])
 		index := string(m[delimIdx+1:])
 
-		link := fmt.Sprintf(`<a href="%s%s/issues/%s">%s</a>`, setting.AppUrl, repo, index, m)
+		link := fmt.Sprintf(`<a href="%s%s/issues/%s">%s</a>`, setting.AppURL, repo, index, m)
 		rawBytes = bytes.Replace(rawBytes, m, []byte(link), 1)
 	}
 	return rawBytes
@@ -140,7 +145,7 @@ func RenderSha1CurrentPattern(rawBytes []byte, urlPrefix string) []byte {
 		if com.StrTo(m).MustInt() > 0 {
 			return m
 		}
-		return fmt.Sprintf(`<a href="%s/commit/%s"><code>%s</code></a>`, urlPrefix, m, tool.ShortSha(string(m)))
+		return fmt.Sprintf(`<a href="%s/commit/%s"><code>%s</code></a>`, urlPrefix, m, tool.ShortSHA1(string(m)))
 	}))
 }
 
@@ -150,7 +155,7 @@ func RenderSpecialLink(rawBytes []byte, urlPrefix string, metas map[string]strin
 	for _, m := range ms {
 		m = m[bytes.Index(m, []byte("@")):]
 		rawBytes = bytes.Replace(rawBytes, m,
-			[]byte(fmt.Sprintf(`<a href="%s/%s">%s</a>`, setting.AppSubUrl, m[1:], m)), -1)
+			[]byte(fmt.Sprintf(`<a href="%s/%s">%s</a>`, setting.AppSubURL, m[1:], m)), -1)
 	}
 
 	rawBytes = RenderIssueIndexPattern(rawBytes, urlPrefix, metas)
@@ -303,10 +308,25 @@ OUTER_LOOP:
 type Type string
 
 const (
-	UNRECOGNIZED Type = "unrecognized"
-	MARKDOWN     Type = "markdown"
-	ORG_MODE     Type = "orgmode"
+	UNRECOGNIZED     Type = "unrecognized"
+	MARKDOWN         Type = "markdown"
+	ORG_MODE         Type = "orgmode"
+	IPYTHON_NOTEBOOK Type = "ipynb"
 )
+
+// Detect returns best guess of a markup type based on file name.
+func Detect(filename string) Type {
+	switch {
+	case IsMarkdownFile(filename):
+		return MARKDOWN
+	case IsOrgModeFile(filename):
+		return ORG_MODE
+	case IsIPythonNotebook(filename):
+		return IPYTHON_NOTEBOOK
+	default:
+		return UNRECOGNIZED
+	}
+}
 
 // Render takes a string or []byte and renders to HTML in given type of syntax with special links.
 func Render(typ Type, input interface{}, urlPrefix string, metas map[string]string) []byte {
@@ -320,12 +340,13 @@ func Render(typ Type, input interface{}, urlPrefix string, metas map[string]stri
 		panic(fmt.Sprintf("unrecognized input content type: %T", input))
 	}
 
-	urlPrefix = strings.Replace(urlPrefix, " ", "%20", -1)
+	urlPrefix = strings.TrimRight(strings.Replace(urlPrefix, " ", "%20", -1), "/")
 	var rawHTML []byte
 	switch typ {
 	case MARKDOWN:
 		rawHTML = RawMarkdown(rawBytes, urlPrefix)
 	case ORG_MODE:
+		rawHTML = RawOrgMode(rawBytes, urlPrefix)
 	default:
 		return rawBytes // Do nothing if syntax type is not recognized
 	}

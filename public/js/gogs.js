@@ -64,7 +64,6 @@ function initEditDiffTab($form) {
         var $this = $(this);
         $.post($this.data('url'), {
                 "_csrf": csrf,
-                "context": $this.data('context'),
                 "content": $form.find('.tab.segment[data-tab="' + $tabMenu.data('write') + '"] textarea').val()
             },
             function (data) {
@@ -112,7 +111,7 @@ function initCommentForm() {
     // This should be added directly to HTML but somehow just get empty <span> on this page.
     $labelMenu.find('.item:not(.no-select) .octicon:not(.octicon-check)').each(function () {
         $(this).html('&nbsp;');
-    })
+    });
     $labelMenu.find('.item:not(.no-select)').click(function () {
         if ($(this).hasClass('checked')) {
             $(this).removeClass('checked');
@@ -254,19 +253,6 @@ function initRepository() {
             } else {
                 $prompt.hide();
             }
-        });
-
-        // Enable or select internal/external wiki system and issue tracker.
-        $('.enable-system').change(function () {
-            if (this.checked) {
-                $($(this).data('target')).removeClass('disabled');
-            } else {
-                $($(this).data('target')).addClass('disabled');
-            }
-        });
-        $('.enable-system-radio').change(function () {
-			$($(this).data('enable')).removeClass('disabled');
-			$($(this).data('disable')).addClass('disabled');
         });
     }
 
@@ -513,6 +499,15 @@ function initRepository() {
     if ($('.repository.compare.pull').length > 0) {
         initFilterSearchDropdown('.choose.branch .dropdown');
     }
+    if ($('.repository.view.pull').length > 0) {
+    	$('.comment.merge.box input[name=merge_style]').change(function () {
+    		if ($(this).val() === 'create_merge_commit') {
+				$('.commit.description.field').show();
+			} else {
+				$('.commit.description.field').hide();
+			}
+		})
+	}
 }
 
 function initWikiForm() {
@@ -627,7 +622,7 @@ function setSimpleMDE($editArea) {
             "code", "quote", "|",
             "unordered-list", "ordered-list", "|",
             "link", "image", "table", "horizontal-rule", "|",
-            "clean-block", "preview", "fullscreen", "side-by-side"]
+            "clean-block"]
     });
 
     return true;
@@ -704,9 +699,13 @@ function initEditor() {
                 parts.push(element.text());
             }
         });
-        if ($(this).val())
+        if ($(this).val()) {
             parts.push($(this).val());
-        $('#tree_path').val(parts.join('/'));
+        }
+
+        var tree_path = parts.join('/');
+        $('#tree_path').val(tree_path);
+        $('#preview-tab').data('context', $('#preview-tab').data('root-context') + tree_path.substring(0, tree_path.lastIndexOf("/")+1));
     }).trigger('keyup');
 
     var $editArea = $('.repository.editor textarea#edit_area');
@@ -1154,6 +1153,11 @@ $(document).ready(function () {
     csrf = $('meta[name=_csrf]').attr("content");
     suburl = $('meta[name=_suburl]').attr("content");
 
+    // Set cursor to the end of autofocus input string
+    $('input[autofocus]').each(function () {
+        $(this).val($(this).val());
+    })
+
     // Show exact time
     $('.time-since').each(function () {
         $(this).addClass('poping up').attr('data-content', $(this).attr('title')).attr('data-variation', 'inverted tiny').attr('title', '');
@@ -1267,6 +1271,12 @@ $(document).ready(function () {
         e.trigger.setAttribute('data-content', e.trigger.getAttribute('data-original'))
     });
 
+    // Autosize
+    if ($('#description.autosize').length > 0) {
+        autosize($('#description'));
+        showMessageMaxLength(512, 'description', 'descLength');
+    }
+
     // AJAX load buttons
     $('.ajax-load-button').click(function () {
         var $this = $(this);
@@ -1291,7 +1301,7 @@ $(document).ready(function () {
         });
     });
 
-    // Helpers.
+    // Helpers
     $('.delete-button').click(function () {
         var $this = $(this);
         $('.delete.modal').modal({
@@ -1325,6 +1335,19 @@ $(document).ready(function () {
         }).done(function () {
             window.location.href = $this.data('done-url');
         });
+    });
+
+    // Check or select on option to enable/disable target region
+    $('.enable-system').change(function () {
+        if (this.checked) {
+            $($(this).data('target')).removeClass('disabled');
+        } else {
+            $($(this).data('target')).addClass('disabled');
+        }
+    });
+    $('.enable-system-radio').change(function () {
+        $($(this).data('enable')).removeClass('disabled');
+        $($(this).data('disable')).addClass('disabled');
     });
 
     // Set anchor.
@@ -1435,3 +1458,42 @@ $(function () {
     if ($('.user.signin').length > 0) return;
     $('form').areYouSure();
 });
+
+ // getByteLen counts bytes in a string's UTF-8 representation.
+function getByteLen(normalVal) {
+    // Force string type
+    normalVal = String(normalVal);
+
+    var byteLen = 0;
+    for (var i = 0; i < normalVal.length; i++) {
+        var c = normalVal.charCodeAt(i);
+        byteLen += c < (1 <<  7) ? 1 :
+                   c < (1 << 11) ? 2 :
+                   c < (1 << 16) ? 3 :
+                   c < (1 << 21) ? 4 :
+                   c < (1 << 26) ? 5 :
+                   c < (1 << 31) ? 6 : Number.NaN;
+    }
+    return byteLen;
+}
+
+function showMessageMaxLength(maxLen, textElemId, counterId) {
+    var $msg = $('#'+textElemId);
+    $('#'+counterId).html(maxLen - getByteLen($msg.val()));
+
+    var onMessageKey = function (e) {
+        var $msg = $(this);
+        var text = $msg.val();
+        var len = getByteLen(text);
+        var remainder = maxLen - len;
+
+        if (len >= maxLen) {
+            $msg.val($msg.val().substr(0, maxLen));
+            remainder = 0;
+        }
+
+        $('#'+counterId).html(remainder);
+    };
+
+    $msg.keyup(onMessageKey).keydown(onMessageKey);
+}

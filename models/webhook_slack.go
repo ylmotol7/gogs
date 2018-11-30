@@ -5,14 +5,15 @@
 package models
 
 import (
-	"encoding/json"
 	"fmt"
 	"strings"
 
-	"github.com/gogits/git-module"
-	api "github.com/gogits/go-gogs-client"
+	"github.com/json-iterator/go"
 
-	"github.com/gogits/gogs/pkg/setting"
+	"github.com/gogs/git-module"
+	api "github.com/gogs/go-gogs-client"
+
+	"github.com/gogs/gogs/pkg/setting"
 )
 
 type SlackMeta struct {
@@ -40,7 +41,7 @@ type SlackPayload struct {
 }
 
 func (p *SlackPayload) JSONPayload() ([]byte, error) {
-	data, err := json.MarshalIndent(p, "", "  ")
+	data, err := jsoniter.MarshalIndent(p, "", "  ")
 	if err != nil {
 		return []byte{}, err
 	}
@@ -146,7 +147,7 @@ func getSlackPushPayload(p *api.PushPayload, slack *SlackMeta) (*SlackPayload, e
 }
 
 func getSlackIssuesPayload(p *api.IssuesPayload, slack *SlackMeta) (*SlackPayload, error) {
-	senderLink := SlackLinkFormatter(setting.AppUrl+p.Sender.UserName, p.Sender.UserName)
+	senderLink := SlackLinkFormatter(setting.AppURL+p.Sender.UserName, p.Sender.UserName)
 	titleLink := SlackLinkFormatter(fmt.Sprintf("%s/issues/%d", p.Repository.HTMLURL, p.Index),
 		fmt.Sprintf("#%d %s", p.Index, p.Issue.Title))
 	var text, title, attachmentText string
@@ -164,7 +165,7 @@ func getSlackIssuesPayload(p *api.IssuesPayload, slack *SlackMeta) (*SlackPayloa
 		attachmentText = SlackTextFormatter(p.Issue.Body)
 	case api.HOOK_ISSUE_ASSIGNED:
 		text = fmt.Sprintf("[%s] Issue assigned to %s: %s by %s", p.Repository.FullName,
-			SlackLinkFormatter(setting.AppUrl+p.Issue.Assignee.UserName, p.Issue.Assignee.UserName),
+			SlackLinkFormatter(setting.AppURL+p.Issue.Assignee.UserName, p.Issue.Assignee.UserName),
 			titleLink, senderLink)
 	case api.HOOK_ISSUE_UNASSIGNED:
 		text = fmt.Sprintf("[%s] Issue unassigned: %s by %s", p.Repository.FullName, titleLink, senderLink)
@@ -192,7 +193,7 @@ func getSlackIssuesPayload(p *api.IssuesPayload, slack *SlackMeta) (*SlackPayloa
 }
 
 func getSlackIssueCommentPayload(p *api.IssueCommentPayload, slack *SlackMeta) (*SlackPayload, error) {
-	senderLink := SlackLinkFormatter(setting.AppUrl+p.Sender.UserName, p.Sender.UserName)
+	senderLink := SlackLinkFormatter(setting.AppURL+p.Sender.UserName, p.Sender.UserName)
 	titleLink := SlackLinkFormatter(fmt.Sprintf("%s/issues/%d#%s", p.Repository.HTMLURL, p.Issue.Index, CommentHashTag(p.Comment.ID)),
 		fmt.Sprintf("#%d %s", p.Issue.Index, p.Issue.Title))
 	var text, title, attachmentText string
@@ -226,7 +227,7 @@ func getSlackIssueCommentPayload(p *api.IssueCommentPayload, slack *SlackMeta) (
 }
 
 func getSlackPullRequestPayload(p *api.PullRequestPayload, slack *SlackMeta) (*SlackPayload, error) {
-	senderLink := SlackLinkFormatter(setting.AppUrl+p.Sender.UserName, p.Sender.UserName)
+	senderLink := SlackLinkFormatter(setting.AppURL+p.Sender.UserName, p.Sender.UserName)
 	titleLink := SlackLinkFormatter(fmt.Sprintf("%s/pulls/%d", p.Repository.HTMLURL, p.Index),
 		fmt.Sprintf("#%d %s", p.Index, p.PullRequest.Title))
 	var text, title, attachmentText string
@@ -248,7 +249,7 @@ func getSlackPullRequestPayload(p *api.PullRequestPayload, slack *SlackMeta) (*S
 		attachmentText = SlackTextFormatter(p.PullRequest.Body)
 	case api.HOOK_ISSUE_ASSIGNED:
 		text = fmt.Sprintf("[%s] Pull request assigned to %s: %s by %s", p.Repository.FullName,
-			SlackLinkFormatter(setting.AppUrl+p.PullRequest.Assignee.UserName, p.PullRequest.Assignee.UserName),
+			SlackLinkFormatter(setting.AppURL+p.PullRequest.Assignee.UserName, p.PullRequest.Assignee.UserName),
 			titleLink, senderLink)
 	case api.HOOK_ISSUE_UNASSIGNED:
 		text = fmt.Sprintf("[%s] Pull request unassigned: %s by %s", p.Repository.FullName, titleLink, senderLink)
@@ -288,8 +289,8 @@ func getSlackReleasePayload(p *api.ReleasePayload) (*SlackPayload, error) {
 
 func GetSlackPayload(p api.Payloader, event HookEventType, meta string) (payload *SlackPayload, err error) {
 	slack := &SlackMeta{}
-	if err := json.Unmarshal([]byte(meta), &slack); err != nil {
-		return nil, fmt.Errorf("json.Unmarshal: %v", err)
+	if err := jsoniter.Unmarshal([]byte(meta), &slack); err != nil {
+		return nil, fmt.Errorf("Unmarshal: %v", err)
 	}
 
 	switch event {
